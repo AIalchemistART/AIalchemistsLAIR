@@ -693,9 +693,10 @@ class ArcadeEntity extends Entity {
             if (isNearPlayer !== this.isNearPlayer) {
                 debug(`ArcadeEntity: Player proximity changed to ${isNearPlayer ? 'NEAR' : 'FAR'}`);
                 
-                // Trigger a pulse effect when proximity changes
+                // Trigger a pulse effect and sound when proximity changes
                 if (isNearPlayer) {
                     this.pulseGlow();
+                    this.playProximitySound();
                 }
             }
             
@@ -964,6 +965,10 @@ class ArcadeEntity extends Entity {
      */
     hideGameSelection() {
         debug(`ArcadeEntity: Hiding game selection`);
+        
+        // Play a sound effect when closing the menu
+        this.playMenuCloseSound();
+        
         this.gameSelectVisible = false;
         
         // Tell the game system interaction is over
@@ -1035,48 +1040,160 @@ class ArcadeEntity extends Entity {
     }
     
     /**
-     * Play the arcade machine activation sound
+     * Play the arcade machine activation sound using Web Audio API
      */
     playActivateSound() {
         try {
-            // Try to play the arcade activation sound
-            if (this.activateSound) {
-                this.activateSound.currentTime = 0;
-                this.activateSound.play();
-                debug(`ArcadeEntity: Played activation sound`);
+            // Create custom arcade power-on sound using Web Audio API
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for the electronic hum
+            const oscillator = context.createOscillator();
+            oscillator.type = 'square';
+            oscillator.frequency.setValueAtTime(80, context.currentTime); // Start with a low frequency
+            oscillator.frequency.exponentialRampToValueAtTime(440, context.currentTime + 0.3); // Rise to higher pitch
+            
+            // Add a second oscillator for texture
+            const oscillator2 = context.createOscillator();
+            oscillator2.type = 'sawtooth';
+            oscillator2.frequency.setValueAtTime(200, context.currentTime);
+            oscillator2.frequency.linearRampToValueAtTime(800, context.currentTime + 0.5);
+            
+            // Create gain nodes for volume control
+            const gainNode = context.createGain();
+            gainNode.gain.setValueAtTime(0.02, context.currentTime); // Start quiet
+            gainNode.gain.linearRampToValueAtTime(0.08, context.currentTime + 0.1); // Peak
+            gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.8); // Fade out
+            
+            const gainNode2 = context.createGain();
+            gainNode2.gain.setValueAtTime(0.01, context.currentTime);
+            gainNode2.gain.linearRampToValueAtTime(0.03, context.currentTime + 0.2);
+            gainNode2.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.6);
+            
+            // Add some distortion for arcade flavor
+            const distortion = context.createWaveShaper();
+            function makeDistortionCurve(amount) {
+                const k = typeof amount === 'number' ? amount : 50;
+                const n_samples = 44100;
+                const curve = new Float32Array(n_samples);
+                const deg = Math.PI / 180;
+                
+                for (let i = 0; i < n_samples; ++i) {
+                    const x = i * 2 / n_samples - 1;
+                    curve[i] = (3 + k) * x * 20 * deg / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
             }
+            distortion.curve = makeDistortionCurve(400);
+            distortion.oversample = '4x';
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            oscillator2.connect(gainNode2);
+            gainNode.connect(distortion);
+            gainNode2.connect(distortion);
+            distortion.connect(context.destination);
+            
+            // Start oscillators
+            oscillator.start();
+            oscillator2.start();
+            
+            // Stop and clean up
+            setTimeout(() => {
+                oscillator.stop();
+                oscillator2.stop();
+                context.close();
+            }, 800);
+            
+            debug(`ArcadeEntity: Played custom activation sound`);
         } catch (err) {
             debug(`ArcadeEntity: Error playing activation sound: ${err}`);
         }
     }
     
     /**
-     * Play the menu selection change sound
+     * Play the menu selection change sound using Web Audio API
      */
     playSelectSound() {
         try {
-            // Try to play the selection sound
-            if (this.selectSound) {
-                this.selectSound.currentTime = 0;
-                this.selectSound.play();
-                debug(`ArcadeEntity: Played selection sound`);
-            }
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for the selection blip
+            const oscillator = context.createOscillator();
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(1200, context.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(800, context.currentTime + 0.1);
+            
+            // Create gain node for volume control
+            const gainNode = context.createGain();
+            gainNode.gain.setValueAtTime(0.05, context.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.1);
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+            
+            // Start and stop the sound
+            oscillator.start();
+            setTimeout(() => {
+                oscillator.stop();
+                context.close();
+            }, 100);
+            
+            debug(`ArcadeEntity: Played custom selection sound`);
         } catch (err) {
             debug(`ArcadeEntity: Error playing selection sound: ${err}`);
         }
     }
     
     /**
-     * Play the game launch sound
+     * Play the game launch sound using Web Audio API
      */
     playLaunchSound() {
         try {
-            // Try to play the launch sound
-            if (this.launchSound) {
-                this.launchSound.currentTime = 0;
-                this.launchSound.play();
-                debug(`ArcadeEntity: Played launch sound`);
-            }
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create an array of notes for a classic arcade startup jingle
+            const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            const durations = [0.1, 0.1, 0.1, 0.3];  // Note durations in seconds
+            
+            // Create gain node for the entire sequence
+            const masterGain = context.createGain();
+            masterGain.gain.setValueAtTime(0.1, context.currentTime);
+            masterGain.connect(context.destination);
+            
+            // Play each note with a slight delay
+            let startTime = context.currentTime;
+            
+            notes.forEach((freq, i) => {
+                // Create oscillator for each note
+                const oscillator = context.createOscillator();
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(freq, startTime);
+                
+                // Create individual gain for note articulation
+                const gainNode = context.createGain();
+                gainNode.gain.setValueAtTime(0.2, startTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, startTime + durations[i]);
+                
+                // Connect this note's path
+                oscillator.connect(gainNode);
+                gainNode.connect(masterGain);
+                
+                // Schedule playback
+                oscillator.start(startTime);
+                oscillator.stop(startTime + durations[i] + 0.05); // Small buffer after the note
+                
+                // Move to next note timing
+                startTime += durations[i];
+            });
+            
+            // Close audio context after all notes have played
+            setTimeout(() => {
+                context.close();
+            }, (startTime - context.currentTime + 0.5) * 1000);
+            
+            debug(`ArcadeEntity: Played custom launch sound`);
         } catch (err) {
             debug(`ArcadeEntity: Error playing launch sound: ${err}`);
         }
@@ -1086,10 +1203,105 @@ class ArcadeEntity extends Entity {
      * Load sound effects
      */
     loadSoundEffects() {
-        // Load sound effects
-        this.activateSound = new Audio('assets/sounds/arcade-activate.mp3');
-        this.selectSound = new Audio('assets/sounds/arcade-select.mp3');
-        this.launchSound = new Audio('assets/sounds/arcade-launch.mp3');
+        // We're now using Web Audio API for sound generation
+        // No need to load external sound files
+        debug(`ArcadeEntity: Using Web Audio API for sound generation`);
+    }
+
+    /**
+     * Play a sound effect when closing the menu
+     */
+    playMenuCloseSound() {
+        try {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create oscillator for a downward sweep
+            const oscillator = context.createOscillator();
+            oscillator.type = 'triangle';
+            oscillator.frequency.setValueAtTime(800, context.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(200, context.currentTime + 0.3);
+            
+            // Create gain node for volume control
+            const gainNode = context.createGain();
+            gainNode.gain.setValueAtTime(0.05, context.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.3);
+            
+            // Connect nodes
+            oscillator.connect(gainNode);
+            gainNode.connect(context.destination);
+            
+            // Start and stop the sound
+            oscillator.start();
+            setTimeout(() => {
+                oscillator.stop();
+                context.close();
+            }, 300);
+            
+            debug(`ArcadeEntity: Played menu close sound`);
+        } catch (err) {
+            debug(`ArcadeEntity: Error playing menu close sound: ${err}`);
+        }
+    }
+
+    /**
+     * Play a chiptune-style sound when player enters interaction range
+     */
+    playProximitySound() {
+        try {
+            const context = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create a chiptune-style arpeggio sequence
+            const notes = [523.25, 659.25, 783.99, 659.25]; // C5, E5, G5, E5 - simple C major arpeggio
+            const durations = [0.08, 0.08, 0.08, 0.08]; // Short, equal note durations
+            
+            // Create main oscillator (square wave for 8-bit sound)
+            const oscMaster = context.createOscillator();
+            oscMaster.type = 'square';
+            
+            // Create a biquad filter for the lo-fi effect
+            const filter = context.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.value = 1500;
+            filter.Q.value = 2;
+            
+            // Create gain node for volume control and envelope
+            const gainNode = context.createGain();
+            gainNode.gain.setValueAtTime(0.06, context.currentTime); // Slightly louder but still subtle
+            
+            // Connect the nodes
+            oscMaster.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(context.destination);
+            
+            // Play each note of the sequence
+            let time = context.currentTime;
+            
+            notes.forEach((freq, i) => {
+                // Schedule the frequency change
+                oscMaster.frequency.setValueAtTime(freq, time);
+                
+                // Create a slight staccato effect
+                gainNode.gain.setValueAtTime(0.05, time);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, time + durations[i] * 0.8);
+                
+                // Move to next note timing
+                time += durations[i];
+            });
+            
+            // Final fadeout
+            gainNode.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+            
+            // Start and stop the oscillator
+            oscMaster.start();
+            setTimeout(() => {
+                oscMaster.stop();
+                context.close();
+            }, (time - context.currentTime + 0.2) * 1000);
+            
+            debug(`ArcadeEntity: Played chiptune proximity sound`);
+        } catch (err) {
+            debug(`ArcadeEntity: Error playing proximity sound: ${err}`);
+        }
     }
     
     /**
@@ -1772,5 +1984,7 @@ class ArcadeEntity extends Entity {
         tryNextPath();
     }
 }
+
+
 
 export { ArcadeEntity };

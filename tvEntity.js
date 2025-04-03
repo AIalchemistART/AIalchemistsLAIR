@@ -289,6 +289,9 @@ class TVEntity extends Entity {
             // Player just entered interaction range
             if (!wasNearby && this.isPlayerNearby) {
                 console.log(`TVEntity: Player entered interaction range (${distance.toFixed(2)} units)`);
+                
+                // Play TV static/electronic sound when player approaches
+                this.playProximitySound();
             }
             
             // Player just left interaction range
@@ -619,6 +622,134 @@ class TVEntity extends Entity {
             // Remove ESC key listener
             document.removeEventListener('keydown', this.handleEscapeKey);
             document.removeEventListener('keydown', this.handleEnterKeyInModal);
+        }
+    }
+    
+    /**
+     * Play a TV static/electronic sound when player approaches
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Duration of the sound effect
+            const duration = 2.0; // seconds
+            const sampleRate = audioCtx.sampleRate;
+            const bufferSize = sampleRate * duration;
+            
+            // Create audio buffer
+            const staticBuffer = audioCtx.createBuffer(2, bufferSize, sampleRate);
+            const leftChannel = staticBuffer.getChannelData(0);
+            const rightChannel = staticBuffer.getChannelData(1);
+            
+            // Generate TV static sound - mixture of white noise and frequency modulation
+            for (let i = 0; i < bufferSize; i++) {
+                const t = i / sampleRate;
+                
+                // Create envelope - gentle fade in/out
+                let envelope;
+                if (t < 0.2) {
+                    // Fade in
+                    envelope = t / 0.2 * 0.7; // Max volume of 0.7
+                } else if (t > duration - 0.3) {
+                    // Fade out
+                    envelope = (duration - t) / 0.3 * 0.7;
+                } else {
+                    // Sustain
+                    envelope = 0.7;
+                }
+                
+                // Base noise component with slight time-based modulation
+                const noise = Math.random() * 2 - 1;
+                
+                // Add electronic TV whine/hum components
+                // Classic TV horizontal scan sound (15.75 kHz for NTSC)
+                const scanlineFreq = 15750;
+                const scanline = Math.sin(2 * Math.PI * scanlineFreq * t) * 0.03;
+                
+                // Power transformer hum (60Hz with harmonics)
+                const powerHum = (
+                    Math.sin(2 * Math.PI * 60 * t) * 0.05 +
+                    Math.sin(2 * Math.PI * 120 * t) * 0.03 +
+                    Math.sin(2 * Math.PI * 180 * t) * 0.01
+                );
+                
+                // TV tuning sound (frequency variations)
+                const tuningSpeed = 4; // speed of frequency change
+                const tuningFreq = 800 + 400 * Math.sin(2 * Math.PI * tuningSpeed * t / duration);
+                const tuning = Math.sin(2 * Math.PI * tuningFreq * t) * 0.1;
+                
+                // CRT static electricity sound (random crackles)
+                const crackle = (Math.random() > 0.995) ? Math.random() * 0.4 : 0;
+                
+                // Interference patterns
+                const interference = Math.sin(2 * Math.PI * 440 * t + Math.sin(2 * Math.PI * 1 * t) * 10) * 0.1;
+                
+                // Mix all components together
+                const sample = (
+                    (noise * 0.3) +      // 30% white noise
+                    scanline +            // Scanline whine
+                    powerHum +            // Power transformer hum
+                    tuning +              // Tuning sound
+                    crackle +             // Random crackles
+                    interference          // Interference patterns
+                ) * envelope;
+                
+                // Add stereo variation
+                leftChannel[i] = sample * (1 + Math.sin(t * 2) * 0.1);
+                rightChannel[i] = sample * (1 - Math.sin(t * 2) * 0.1);
+            }
+            
+            // Create source node
+            const staticSource = audioCtx.createBufferSource();
+            staticSource.buffer = staticBuffer;
+            
+            // Create bandpass filter to shape the sound
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.value = 2500; // Focus on mid frequencies
+            bandpass.Q.value = 0.5; // Wide bandwidth
+            
+            // Create a slight distortion for the static
+            const waveshaper = audioCtx.createWaveShaper();
+            function createDistortionCurve(amount) {
+                const k = amount || 50;
+                const n_samples = 44100;
+                const curve = new Float32Array(n_samples);
+                for (let i = 0; i < n_samples; i++) {
+                    const x = (i * 2) / n_samples - 1;
+                    curve[i] = (Math.PI + k) * x / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
+            }
+            waveshaper.curve = createDistortionCurve(5);
+            
+            // Create master gain node
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.4; // Set volume
+            
+            // Connect nodes together
+            staticSource.connect(bandpass);
+            bandpass.connect(waveshaper);
+            waveshaper.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            
+            // Play sound
+            staticSource.start();
+            
+            // Stop and clean up after duration
+            setTimeout(() => {
+                try {
+                    staticSource.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up TV static sound:', err);
+                }
+            }, duration * 1000);
+            
+            debug('TVEntity: Played TV static/electronic proximity sound');
+        } catch (err) {
+            console.error(`TVEntity: Error playing proximity sound: ${err.message}`);
         }
     }
     

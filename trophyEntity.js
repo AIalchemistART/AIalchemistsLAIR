@@ -137,6 +137,8 @@ export class TrophyEntity extends Entity {
             // Log state changes
             if (!wasNearby && this.isPlayerNearby) {
                 console.log(`TrophyEntity: Player entered interaction range (${distance.toFixed(2)} units)`);
+                // Play triumphant fanfare when player approaches trophy
+                this.playTriumphantSound();
             } else if (wasNearby && !this.isPlayerNearby) {
                 console.log(`TrophyEntity: Player left interaction range (${distance.toFixed(2)} units)`);
             }
@@ -228,6 +230,269 @@ export class TrophyEntity extends Entity {
             
             // Update previous state
             this.wasEnterPressed = isEnterPressed;
+        }
+    }
+    
+    /**
+     * Play a triumphant fanfare sound when player approaches the trophy
+     */
+    playTriumphantSound() {
+        try {
+            // Create audio context
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Duration of our fanfare
+            const duration = 2.5; // seconds
+            
+            // Create an audio buffer for our fanfare
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            const leftChannel = buffer.getChannelData(0);
+            const rightChannel = buffer.getChannelData(1);
+            
+            // Triumphant major-key fanfare with brass-like sound
+            // Define notes for a triumphant C major fanfare sequence
+            const notes = [
+                // Rising major triad
+                { note: 'C4', freq: 261.63, start: 0.0, duration: 0.15, type: 'brass' },
+                { note: 'E4', freq: 329.63, start: 0.15, duration: 0.15, type: 'brass' },
+                { note: 'G4', freq: 392.00, start: 0.3, duration: 0.15, type: 'brass' },
+                
+                // Fifth jump (C to G)
+                { note: 'C5', freq: 523.25, start: 0.45, duration: 0.4, type: 'brass' },
+                { note: 'G5', freq: 783.99, start: 0.85, duration: 0.6, type: 'fanfare' },
+                
+                // Final chord - C major with added high C
+                { note: 'C4', freq: 261.63, start: 1.45, duration: 0.9, type: 'chord' },
+                { note: 'E4', freq: 329.63, start: 1.45, duration: 0.9, type: 'chord' },
+                { note: 'G4', freq: 392.00, start: 1.45, duration: 0.9, type: 'chord' },
+                { note: 'C5', freq: 523.25, start: 1.45, duration: 0.9, type: 'chord' }
+            ];
+            
+            // Add percussion
+            const percussion = [
+                { type: 'cymbal', start: 0.0, duration: 0.1 },
+                { type: 'cymbal', start: 0.45, duration: 0.1 },
+                { type: 'cymbal', start: 1.45, duration: 0.3 }
+            ];
+            
+            // Generate the notes
+            for (const note of notes) {
+                const startSample = Math.floor(note.start * audioCtx.sampleRate);
+                const endSample = Math.floor((note.start + note.duration) * audioCtx.sampleRate);
+                const noteSamples = endSample - startSample;
+                
+                // Generate each sample for this note
+                for (let i = 0; i < noteSamples; i++) {
+                    if (startSample + i >= bufferSize) break;
+                    
+                    const t = i / audioCtx.sampleRate;
+                    let value = 0;
+                    
+                    // Apply envelope - attack, decay, sustain, release (ADSR)
+                    let envelope;
+                    const attack = 0.05;
+                    const decay = 0.1;
+                    const sustain = 0.8;
+                    const release = 0.2;
+                    
+                    // Calculate normalized position in note (0-1)
+                    const notePosition = i / noteSamples;
+                    
+                    // Apply ADSR envelope
+                    if (notePosition < attack / note.duration) {
+                        // Attack phase - quick rise
+                        envelope = notePosition / (attack / note.duration);
+                    } else if (notePosition < (attack + decay) / note.duration) {
+                        // Decay phase - slight reduction to sustain level
+                        const decayPosition = (notePosition - attack / note.duration) / (decay / note.duration);
+                        envelope = 1.0 - (1.0 - sustain) * decayPosition;
+                    } else if (notePosition < 1.0 - release / note.duration) {
+                        // Sustain phase - maintain level
+                        envelope = sustain;
+                    } else {
+                        // Release phase - fade out
+                        const releasePosition = (notePosition - (1.0 - release / note.duration)) / (release / note.duration);
+                        envelope = sustain * (1.0 - releasePosition);
+                    }
+                    
+                    // Different timbres for different note types
+                    if (note.type === 'brass') {
+                        // Brass-like sound with harmonics
+                        value = Math.sin(2 * Math.PI * note.freq * t) * 0.4 +
+                                Math.sin(2 * Math.PI * note.freq * 2 * t) * 0.2 +
+                                Math.sin(2 * Math.PI * note.freq * 3 * t) * 0.1 +
+                                // Add a bit of noise for brass character
+                                (Math.random() * 2 - 1) * 0.05;
+                        
+                        // Add slight pitch bend at start for brass character
+                        if (i < noteSamples * 0.1) {
+                            const bendAmount = 1 - (i / (noteSamples * 0.1)) * 0.05;
+                            value = Math.sin(2 * Math.PI * note.freq * bendAmount * t) * 0.6;
+                        }
+                        
+                    } else if (note.type === 'fanfare') {
+                        // Triumphant fanfare sound with stronger harmonics & vibrato
+                        const vibrato = 1 + Math.sin(2 * Math.PI * 6 * t) * 0.015; // 6 Hz vibrato
+                        value = Math.sin(2 * Math.PI * note.freq * t * vibrato) * 0.4 +
+                                Math.sin(2 * Math.PI * note.freq * 2 * t) * 0.25 +
+                                Math.sin(2 * Math.PI * note.freq * 3 * t) * 0.15 +
+                                Math.sin(2 * Math.PI * note.freq * 4 * t) * 0.1;
+                    } else if (note.type === 'chord') {
+                        // Sustaining final chord
+                        value = Math.sin(2 * Math.PI * note.freq * t) * 0.3 +
+                                Math.sin(2 * Math.PI * note.freq * 2 * t) * 0.15;
+                        
+                        // Add slow tremolo to the final chord
+                        const tremolo = 0.7 + Math.sin(2 * Math.PI * 4 * t) * 0.3;
+                        value *= tremolo;
+                    }
+                    
+                    // Apply envelope
+                    value *= envelope;
+                    
+                    // Apply overall volume adjustment for this type
+                    if (note.type === 'brass') value *= 0.7;
+                    if (note.type === 'fanfare') value *= 0.6;
+                    if (note.type === 'chord') value *= 0.5;
+                    
+                    // Add stereo separation based on note frequency
+                    // Higher notes more to the right, lower notes more to the left
+                    const panPosition = (note.freq - 261.63) / (783.99 - 261.63); // 0-1 based on note range
+                    const leftGain = 1.0 - panPosition * 0.5; // 1.0-0.5
+                    const rightGain = 0.5 + panPosition * 0.5; // 0.5-1.0
+                    
+                    // Mix into buffer with stereo position
+                    leftChannel[startSample + i] += value * leftGain;
+                    rightChannel[startSample + i] += value * rightGain;
+                }
+            }
+            
+            // Add percussion elements
+            for (const perc of percussion) {
+                const startSample = Math.floor(perc.start * audioCtx.sampleRate);
+                const endSample = Math.floor((perc.start + perc.duration) * audioCtx.sampleRate);
+                const percSamples = endSample - startSample;
+                
+                if (perc.type === 'cymbal') {
+                    for (let i = 0; i < percSamples; i++) {
+                        if (startSample + i >= bufferSize) break;
+                        
+                        // White noise filtered for cymbal-like sound
+                        const noise = Math.random() * 2 - 1;
+                        
+                        // Envelope with fast attack and longer decay
+                        const env = Math.exp(-i / percSamples * 10);
+                        
+                        // Add high frequency resonance for cymbal character
+                        const resonance = Math.sin(2 * Math.PI * 8000 * i / audioCtx.sampleRate) * 0.1;
+                        
+                        // Combine and apply envelope
+                        const cymbalSound = (noise * 0.6 + resonance) * env * 0.4;
+                        
+                        // Mix into buffer
+                        leftChannel[startSample + i] += cymbalSound;
+                        rightChannel[startSample + i] += cymbalSound;
+                    }
+                }
+            }
+            
+            // Normalize to prevent clipping
+            let maxSample = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                maxSample = Math.max(maxSample, Math.abs(leftChannel[i]), Math.abs(rightChannel[i]));
+            }
+            
+            if (maxSample > 0.9) {
+                const normalizeFactor = 0.9 / maxSample;
+                for (let i = 0; i < bufferSize; i++) {
+                    leftChannel[i] *= normalizeFactor;
+                    rightChannel[i] *= normalizeFactor;
+                }
+            }
+            
+            // Set up audio processing chain
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            
+            // Add reverb for spatial quality
+            const convolver = audioCtx.createConvolver();
+            
+            // Create impulse response for hall-like reverb
+            const reverbDuration = 1.5; // seconds
+            const decayFactor = 0.01;
+            const impulseLength = audioCtx.sampleRate * reverbDuration;
+            const impulse = audioCtx.createBuffer(2, impulseLength, audioCtx.sampleRate);
+            const impulseL = impulse.getChannelData(0);
+            const impulseR = impulse.getChannelData(1);
+            
+            // Initialize impulse response with decaying noise
+            for (let i = 0; i < impulseLength; i++) {
+                const decay = Math.exp(-i / impulseLength * 10);
+                impulseL[i] = (Math.random() * 2 - 1) * decay * decayFactor;
+                impulseR[i] = (Math.random() * 2 - 1) * decay * decayFactor;
+            }
+            
+            convolver.buffer = impulse;
+            
+            // EQ to enhance the triumphant sound
+            const lowShelf = audioCtx.createBiquadFilter();
+            lowShelf.type = 'lowshelf';
+            lowShelf.frequency.value = 300;
+            lowShelf.gain.value = 3; // Boost bass
+            
+            const highShelf = audioCtx.createBiquadFilter();
+            highShelf.type = 'highshelf';
+            highShelf.frequency.value = 2000;
+            highShelf.gain.value = 2; // Boost highs for brilliance
+            
+            // Dynamics processing for better sound
+            const compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.value = -18;
+            compressor.knee.value = 10;
+            compressor.ratio.value = 4;
+            compressor.attack.value = 0.005;
+            compressor.release.value = 0.1;
+            
+            // Final gain control
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.8;
+            
+            // Set up processing chain
+            source.connect(lowShelf);
+            lowShelf.connect(highShelf);
+            highShelf.connect(compressor);
+            
+            // Split routing - dry signal goes directly to gain, wet through reverb
+            const dryGain = audioCtx.createGain();
+            dryGain.gain.value = 0.7;
+            const wetGain = audioCtx.createGain();
+            wetGain.gain.value = 0.3;
+            
+            compressor.connect(dryGain);
+            compressor.connect(convolver);
+            convolver.connect(wetGain);
+            
+            dryGain.connect(masterGain);
+            wetGain.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            
+            // Play sound
+            source.start();
+            
+            // Schedule cleanup
+            setTimeout(() => {
+                try {
+                    source.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up trophy sound:', err);
+                }
+            }, duration * 1000);
+            
+            debug('TrophyEntity: Played triumphant fanfare sound');
+        } catch (err) {
+            console.error(`TrophyEntity: Error playing triumphant sound: ${err.message}`);
         }
     }
     

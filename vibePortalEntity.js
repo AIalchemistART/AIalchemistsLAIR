@@ -134,6 +134,9 @@ export class VibePortalEntity extends Entity {
             // Player just entered interaction range
             if (!wasNearby && this.isPlayerNearby) {
                 debug(`VibePortalEntity: Player entered interaction range (${distance.toFixed(2)} units)`);
+                
+                // Play high-pitched vortex/whoosh sound when player enters range
+                this.playProximitySound();
             }
             
             // Player just left interaction range
@@ -184,10 +187,21 @@ export class VibePortalEntity extends Entity {
         
         // Add the current domain as the ref parameter for exit portals
         if (this.portalType === 'exit') {
-            // Use the current domain as the ref parameter
-            const currentDomain = window.location.hostname || 'alchemistslair.local';
-            params.append('ref', currentDomain);
-            debug(`VibePortalEntity: Adding ref parameter with value: ${currentDomain}`);
+            // Use the current domain + path as the ref parameter
+            let refValue;
+            
+            // For GitHub Pages, we need to include the repository name
+            if (window.location.hostname.includes('github.io')) {
+                // Get the first part of the path which should be the repository name
+                const repoName = window.location.pathname.split('/')[1] || '';
+                refValue = window.location.hostname + (repoName ? '/' + repoName : '');
+            } else {
+                // For other sites, just use the hostname
+                refValue = window.location.hostname || 'alchemistslair.local';
+            }
+            
+            params.append('ref', refValue);
+            debug(`VibePortalEntity: Adding ref parameter with value: ${refValue}`);
         }
         
         // Add additional parameters if needed
@@ -197,7 +211,25 @@ export class VibePortalEntity extends Entity {
         
         // Build the full URL
         const paramString = params.toString();
-        const nextPage = this.targetUrl + (paramString ? '?' + paramString : '');
+        
+        // Properly construct the URL by checking if it already has parameters
+        let nextPage;
+        if (this.targetUrl.includes('?')) {
+            // If the URL already has parameters, append with &
+            nextPage = this.targetUrl + '&' + paramString;
+        } else {
+            // Otherwise use ? to start parameters
+            nextPage = this.targetUrl + (paramString ? '?' + paramString : '');
+        }
+        
+        // Fix specific case for GitHub Pages
+        if (this.targetUrl.includes('github.io')) {
+            debug('VibePortalEntity: Detected GitHub Pages URL, ensuring correct parameter format');
+            // Make sure we're using the right repository path structure
+            if (!this.targetUrl.endsWith('/')) {
+                nextPage = this.targetUrl + '/' + (paramString ? '?' + paramString : '');
+            }
+        }
         
         // Dispatch custom event for portal entry
         const portalEvent = new CustomEvent('portal-entry', {
@@ -214,8 +246,20 @@ export class VibePortalEntity extends Entity {
         // For production, actually navigate to the URL
         setTimeout(() => {
             if (this.portalType === 'exit') {
-                debug(`VibePortalEntity: Navigating to: ${nextPage}`);
-                window.location.href = nextPage;
+                // Check if we're targeting a GitHub Pages URL and ensure proper formatting
+                if (this.targetUrl.includes('github.io')) {
+                    // For GitHub Pages, use the complete repository path in the URL
+                    const fullUrl = 'https://alchemistART.github.io/AIalchemistsLAIR?portal=true&ref=' + 
+                                   encodeURIComponent(window.location.hostname);
+                    
+                    debug(`VibePortalEntity: GitHub Pages destination detected, using URL: ${fullUrl}`);
+                    this.showPortalMessage(`Traveling to AIalchemist's Lair...`);
+                    window.location.href = fullUrl;
+                } else {
+                    // Standard URL handling for non-GitHub Pages targets
+                    debug(`VibePortalEntity: Navigating to: ${nextPage}`);
+                    window.location.href = nextPage;
+                }
             } else if (this.portalType === 'start') {
                 // Check for ref parameter in URL for start portal
                 const urlParams = new URLSearchParams(window.location.search);
@@ -224,6 +268,18 @@ export class VibePortalEntity extends Entity {
                 if (refUrl) {
                     // Format the URL properly
                     let url = refUrl;
+                    
+                    // Special handling for GitHub Pages refs
+                    if (url.includes('github.io')) {
+                        // Check if it has the repository name
+                        if (!url.includes('/AIalchemistsLAIR')) {
+                            // Add the repository name if it's missing
+                            url = url + '/AIalchemistsLAIR';
+                            debug(`VibePortalEntity: Added missing repository name to GitHub Pages URL: ${url}`);
+                        }
+                    }
+                    
+                    // Add protocol if missing
                     if (!url.startsWith('http://') && !url.startsWith('https://')) {
                         url = 'https://' + url;
                     }
@@ -244,9 +300,36 @@ export class VibePortalEntity extends Entity {
                     debug(`VibePortalEntity: Navigating to ref URL: ${fullUrl}`);
                     window.location.href = fullUrl;
                 } else {
-                    debug(`VibePortalEntity: No ref parameter found, portal transition canceled`);
-                    // Optionally show a message to the user
-                    this.showPortalMessage("No destination found for this portal");
+                    debug(`VibePortalEntity: No ref parameter found, using hardcoded fallback`);
+                    
+                    // DIRECT FALLBACK: Hardcoded list of known game URLs to return to
+                    const gameUrls = [
+                        'http://localhost:3000',  // Local development
+                        'http://localhost:5500',  // Live Server
+                        'https://alchemistART.github.io/AIalchemistsLAIR'  // Main game on GitHub Pages
+                    ];
+                    
+                    // Try to determine the best fallback URL based on current environment
+                    let fallbackUrl;
+                    
+                    if (window.location.hostname === 'localhost') {
+                        // If we're on localhost, use localhost fallback
+                        fallbackUrl = window.location.protocol + '//' + window.location.host;
+                    } else if (window.location.hostname.includes('github.io')) {
+                        // If we're on GitHub Pages, return to the main game repository
+                        fallbackUrl = 'https://alchemistART.github.io/AIalchemistsLAIR';
+                    } else {
+                        // Otherwise use the GitHub Pages fallback
+                        fallbackUrl = gameUrls[2];
+                    }
+                    
+                    debug(`VibePortalEntity: Using hardcoded fallback URL: ${fallbackUrl}`);
+                    this.showPortalMessage("Returning to main game...");
+                    
+                    // Use a short delay for the transition
+                    setTimeout(() => {
+                        window.location.href = fallbackUrl;
+                    }, 1500);
                 }
             }
         }, 1000); // Small delay for visual effect
@@ -564,6 +647,162 @@ export class VibePortalEntity extends Entity {
         const statusY = y + height / 2 + 15;
         ctx.fillStyle = this.isPlayerNearby ? 'lime' : 'red';
         ctx.fillText(this.isPlayerNearby ? 'IN RANGE' : 'OUT OF RANGE', x, statusY);
+    }
+    
+    /**
+     * Play a high-pitched vortex/whoosh sound when player approaches the portal
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create noise buffer for the whoosh base
+            const bufferSize = audioCtx.sampleRate * 1.3; // Slightly shorter for higher pitch feel (1.3 seconds)
+            const noiseBuffer = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            
+            // Fill buffer with noise
+            const leftChannel = noiseBuffer.getChannelData(0);
+            const rightChannel = noiseBuffer.getChannelData(1);
+            
+            // Create noise with a specific envelope for whoosh effect
+            for(let i = 0; i < bufferSize; i++) {
+                // Position as a normalized value (0 to 1)
+                const position = i / bufferSize;
+                
+                // Envelope shape - start low, build up, then fade - faster curve for higher pitch
+                let envelope;
+                if (position < 0.15) { // Faster initial build (0.15 vs 0.2)
+                    // Initial build up
+                    envelope = position * (1/0.15) * 0.3; // Ramp up to 0.3
+                } else if (position < 0.35) { // Faster peak (0.35 vs 0.4)
+                    // Continue rising
+                    envelope = 0.3 + (position - 0.15) * (1/0.2) * 0.6; // Ramp up to 0.9
+                } else if (position < 0.6) { // Faster descent (0.6 vs 0.7)
+                    // Peak and begin descent
+                    envelope = 0.9 - (position - 0.35) * (0.9 / 0.25) * 0.5; // Drop to 0.4
+                } else {
+                    // Tail off
+                    envelope = 0.4 * (1 - (position - 0.6) / 0.4);
+                }
+                
+                // Add some variation between channels - with higher frequency noise
+                // Higher frequency noise by using more rapid variations
+                const noiseFreq = Math.sin(position * 100) * 0.1; // Add higher frequency components
+                leftChannel[i] = ((Math.random() * 2 - 1) + noiseFreq) * envelope;
+                rightChannel[i] = ((Math.random() * 2 - 1) - noiseFreq) * envelope;
+            }
+            
+            // Create noise source node
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            
+            // Create a bandpass filter - HIGHER FREQUENCIES for vibeverse portal
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.setValueAtTime(400, audioCtx.currentTime); // Higher starting frequency (400 vs 100)
+            bandpass.frequency.exponentialRampToValueAtTime(4000, audioCtx.currentTime + 0.4); // Higher peak (4000 vs 2000)
+            bandpass.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 1.3); // Higher ending (800 vs 500)
+            bandpass.Q.value = 1.8; // Narrower bandwidth for more distinctive sound
+            
+            // Create a highpass filter to remove rumble
+            const highpass = audioCtx.createBiquadFilter();
+            highpass.type = 'highpass';
+            highpass.frequency.value = 200; // Higher cutoff (200 vs 80) to emphasize higher frequencies
+            
+            // Create an LFO for wobble effect - faster for higher pitch feel
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 1.2; // Faster modulation (1.2 vs 0.8)
+            
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 150; // More intense modulation
+            
+            // Create master gain node for overall volume
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.1, audioCtx.currentTime); // Start quiet
+            masterGain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.3); // Ramp up
+            masterGain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 1.3); // Fade out
+            
+            // Add reverb/echo effect - shorter for higher pitch
+            const convolver = audioCtx.createConvolver();
+            const reverbLength = audioCtx.sampleRate * 0.8; // Shorter reverb (0.8 vs 1.0)
+            const reverbBuffer = audioCtx.createBuffer(2, reverbLength, audioCtx.sampleRate);
+            const reverbLeftChannel = reverbBuffer.getChannelData(0);
+            const reverbRightChannel = reverbBuffer.getChannelData(1);
+            
+            // Create reverb impulse - faster decay for higher pitch
+            for(let i = 0; i < reverbLength; i++) {
+                const decay = Math.exp(-i / (audioCtx.sampleRate * 0.2)); // Faster decay (0.2 vs 0.3)
+                reverbLeftChannel[i] = (Math.random() * 2 - 1) * decay;
+                reverbRightChannel[i] = (Math.random() * 2 - 1) * decay;
+            }
+            
+            convolver.buffer = reverbBuffer;
+            
+            // Connect LFO to bandpass frequency
+            lfo.connect(lfoGain);
+            lfoGain.connect(bandpass.frequency);
+            
+            // Connect main audio path
+            noiseSource.connect(bandpass);
+            bandpass.connect(highpass);
+            highpass.connect(convolver);
+            convolver.connect(masterGain);
+            highpass.connect(masterGain); // Parallel dry signal
+            masterGain.connect(audioCtx.destination);
+            
+            // Start sound
+            noiseSource.start();
+            lfo.start();
+            
+            // Add a subtle tonal element - HIGHER PITCHED for 'vortex' quality
+            const toneOsc = audioCtx.createOscillator();
+            toneOsc.type = 'sine';
+            toneOsc.frequency.setValueAtTime(1200, audioCtx.currentTime); // Higher starting (1200 vs 600)
+            toneOsc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 1.3); // Higher ending (300 vs 150)
+            
+            const toneGain = audioCtx.createGain();
+            toneGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            toneGain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 0.2); // Faster attack
+            toneGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.3);
+            
+            toneOsc.connect(toneGain);
+            toneGain.connect(masterGain);
+            toneOsc.start();
+            toneOsc.stop(audioCtx.currentTime + 1.3);
+            
+            // Add a high pitched shimmer for the vibeverse portal
+            const shimmerOsc = audioCtx.createOscillator();
+            shimmerOsc.type = 'triangle';
+            shimmerOsc.frequency.setValueAtTime(2400, audioCtx.currentTime);
+            shimmerOsc.frequency.exponentialRampToValueAtTime(4800, audioCtx.currentTime + 0.6);
+            shimmerOsc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 1.3);
+            
+            const shimmerGain = audioCtx.createGain();
+            shimmerGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            shimmerGain.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.2); // Very subtle
+            shimmerGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.3);
+            
+            shimmerOsc.connect(shimmerGain);
+            shimmerGain.connect(masterGain);
+            shimmerOsc.start();
+            shimmerOsc.stop(audioCtx.currentTime + 1.3);
+            
+            // Schedule cleanup
+            setTimeout(() => {
+                try {
+                    lfo.stop();
+                    noiseSource.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up vibeverse portal sound:', err);
+                }
+            }, 1300);
+            
+            debug('VibePortalEntity: Played high-pitched vortex sound');
+        } catch (err) {
+            console.error(`VibePortalEntity: Error playing proximity sound: ${err.message}`);
+        }
     }
     
     /**

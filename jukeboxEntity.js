@@ -317,6 +317,11 @@ class JukeboxEntity extends Entity {
             // Debug output only when state changes
             if (wasNearby !== this.isPlayerNearby) {
                 console.log(`JukeboxEntity: Player proximity changed to ${this.isPlayerNearby ? 'NEARBY' : 'FAR'} (distance: ${distance.toFixed(2)})`);
+                
+                // Play vinyl scratch and music sample when player approaches
+                if (this.isPlayerNearby && !wasNearby) {
+                    this.playProximitySound();
+                }
             }
             
             // Handle interaction prompt fade
@@ -599,6 +604,486 @@ class JukeboxEntity extends Entity {
                     console.log('JukeboxEntity: Player element removed from DOM');
                 }
             }, 300);
+        }
+    }
+    
+    /**
+     * Play a vinyl record scratch and music sample sound when player approaches
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const duration = 2.5; // seconds
+            
+            // Create an audio buffer for our combined effect
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            const leftChannel = buffer.getChannelData(0);
+            const rightChannel = buffer.getChannelData(1);
+            
+            // Part 1: Vinyl record scratch (~0.7 seconds)
+            const scratchDuration = 0.7; // seconds
+            const scratchSamples = Math.floor(scratchDuration * audioCtx.sampleRate);
+            
+            // Vinyl scratch parameters
+            const scratchIntensity = 0.8;
+            const scratchSpeed = 30;
+            
+            for (let i = 0; i < scratchSamples; i++) {
+                const t = i / audioCtx.sampleRate;
+                
+                // Envelope for scratch (start strong, fade out)
+                const env = 1 - (i / scratchSamples);
+                
+                // Base scratch noise - filtered noise with rapid pitch changes
+                const noise = Math.random() * 2 - 1;
+                
+                // Forward-backward motion for scratch effect
+                const scratchPattern = Math.sin(t * scratchSpeed * (1 + t * 5));
+                
+                // Combine with a resonant filter effect
+                const resonance = Math.sin(2 * Math.PI * 500 * t) * Math.exp(-t * 10) * 0.3;
+                
+                // Add crackle for authentic vinyl sound
+                const crackle = (Math.random() > 0.98) ? Math.random() * 0.3 : 0;
+                
+                // Combine components
+                const scratch = ((noise * 0.4 + scratchPattern * 0.6) * scratchIntensity + resonance + crackle) * env;
+                
+                // Stereo effect
+                leftChannel[i] = scratch * 0.9;
+                rightChannel[i] = scratch * 0.8;
+            }
+            
+            // Small gap between scratch and music
+            const gapSamples = Math.floor(0.1 * audioCtx.sampleRate);
+            
+            // Part 2: Brief music sample (notes from a melody)
+            const sampleStartIndex = scratchSamples + gapSamples;
+            const musicDuration = duration - scratchDuration - 0.1; // Remaining time after scratch and gap
+            const musicSamples = Math.floor(musicDuration * audioCtx.sampleRate);
+            
+            // Define a short funky bassline with beat
+            const notes = [
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2 repeat
+                { freq: 146.83, duration: 0.12, type: 'bass' }, // D3
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2
+                { freq: 164.81, duration: 0.2, type: 'bass' }, // E3
+                { freq: 220, duration: 0.1, type: 'bass' }, // A3
+                { freq: 220, duration: 0.1, type: 'bass' } // A3 repeat
+            ];
+            
+            // Add a few high chord stabs
+            const chordStabs = [
+                { time: 0.3, duration: 0.1 },
+                { time: 0.7, duration: 0.1 }
+            ];
+            
+            // Drum beat pattern (kick on 1 and 3, snare on 2 and 4)
+            const beats = [
+                { time: 0, type: 'kick' },
+                { time: 0.25, type: 'snare' },
+                { time: 0.5, type: 'kick' },
+                { time: 0.75, type: 'snare' }
+            ];
+            
+            // Generate music section
+            let noteStartTime = 0;
+            
+            // Add bass notes
+            for (let i = 0; i < notes.length && noteStartTime < musicDuration; i++) {
+                const note = notes[i];
+                const noteSamples = Math.floor(note.duration * audioCtx.sampleRate);
+                const noteEndTime = noteStartTime + note.duration;
+                const startIndex = sampleStartIndex + Math.floor(noteStartTime * audioCtx.sampleRate);
+                
+                for (let j = 0; j < noteSamples; j++) {
+                    if (startIndex + j >= bufferSize) break;
+                    
+                    const t = j / audioCtx.sampleRate;
+                    const noteEnvelope = Math.min(1, (j / 1000)) * Math.min(1, (noteSamples - j) / 1000);
+                    
+                    // Bass sound - sine with overtones
+                    const bassSound = Math.sin(2 * Math.PI * note.freq * t) * 0.6 + 
+                                    Math.sin(2 * Math.PI * note.freq * 2 * t) * 0.2 + 
+                                    Math.sin(2 * Math.PI * note.freq * 3 * t) * 0.1;
+                    
+                    // Apply exponential decay
+                    const noteValue = bassSound * noteEnvelope * 0.5;
+                    
+                    // Mix into buffer
+                    leftChannel[startIndex + j] += noteValue;
+                    rightChannel[startIndex + j] += noteValue;
+                }
+                
+                noteStartTime = noteEndTime;
+            }
+            
+            // Add chord stabs
+            for (const stab of chordStabs) {
+                if (stab.time >= musicDuration) continue;
+                
+                const stabSamples = Math.floor(stab.duration * audioCtx.sampleRate);
+                const startIndex = sampleStartIndex + Math.floor(stab.time * audioCtx.sampleRate);
+                
+                // Define chord frequencies (A minor 7th: A C E G)
+                const chordFreqs = [440, 523.25, 659.25, 392];
+                
+                for (let j = 0; j < stabSamples; j++) {
+                    if (startIndex + j >= bufferSize) break;
+                    
+                    const t = j / audioCtx.sampleRate;
+                    const stabEnvelope = Math.exp(-j / (stabSamples / 5)); // Fast decay
+                    
+                    // Generate chord tones
+                    let chordSound = 0;
+                    for (const freq of chordFreqs) {
+                        chordSound += Math.sin(2 * Math.PI * freq * t) * 0.15;
+                    }
+                    
+                    // Apply envelope
+                    const chordValue = chordSound * stabEnvelope * 0.3;
+                    
+                    // Mix into buffer with slight stereo spread
+                    leftChannel[startIndex + j] += chordValue * 1.1;
+                    rightChannel[startIndex + j] += chordValue * 0.9;
+                }
+            }
+            
+            // Add drum beats
+            for (let bar = 0; bar < 2; bar++) { // Two bars of beats
+                for (const beat of beats) {
+                    const beatTime = beat.type === 'kick' ? 0.05 : 0.08; // Kick is shorter than snare
+                    const beatStart = bar + beat.time;
+                    
+                    if (beatStart >= musicDuration) continue;
+                    
+                    const beatSamples = Math.floor(beatTime * audioCtx.sampleRate);
+                    const startIndex = sampleStartIndex + Math.floor(beatStart * audioCtx.sampleRate);
+                    
+                    for (let j = 0; j < beatSamples; j++) {
+                        if (startIndex + j >= bufferSize) break;
+                        
+                        const t = j / audioCtx.sampleRate;
+                        let beatValue = 0;
+                        
+                        if (beat.type === 'kick') {
+                            // Kick drum - sine wave with exponential pitch drop
+                            const kickFreq = 120 * Math.exp(-t * 20) + 60;
+                            beatValue = Math.sin(2 * Math.PI * kickFreq * t) * Math.exp(-t * 20) * 0.7;
+                        } else {
+                            // Snare - filtered noise with resonance
+                            const snareNoise = Math.random() * 2 - 1;
+                            const snareResonance = Math.sin(2 * Math.PI * 900 * t) * Math.exp(-t * 20) * 0.3;
+                            beatValue = (snareNoise * 0.5 + snareResonance) * Math.exp(-t * 10) * 0.6;
+                        }
+                        
+                        // Mix into buffer
+                        leftChannel[startIndex + j] += beatValue * 0.45;
+                        rightChannel[startIndex + j] += beatValue * 0.45;
+                    }
+                }
+            }
+            
+            // Final normalization to prevent clipping
+            let maxSample = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                maxSample = Math.max(maxSample, Math.abs(leftChannel[i]), Math.abs(rightChannel[i]));
+            }
+            
+            if (maxSample > 0.8) {
+                const normalizationFactor = 0.8 / maxSample;
+                for (let i = 0; i < bufferSize; i++) {
+                    leftChannel[i] *= normalizationFactor;
+                    rightChannel[i] *= normalizationFactor;
+                }
+            }
+            
+            // Create source node and connect to destination
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            
+            // Add filtering
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highshelf';
+            filter.frequency.value = 4000;
+            filter.gain.value = -6; // Cut some highs for vintage feel
+            
+            // Add a compressor for punch
+            const compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.value = -24;
+            compressor.knee.value = 10;
+            compressor.ratio.value = 4;
+            compressor.attack.value = 0.005;
+            compressor.release.value = 0.05;
+            
+            // Master gain
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.6;
+            
+            // Connect nodes
+            source.connect(filter);
+            filter.connect(compressor);
+            compressor.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            
+            // Play sound
+            source.start();
+            
+            // Schedule cleanup
+            setTimeout(() => {
+                try {
+                    source.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up jukebox sound:', err);
+                }
+            }, duration * 1000);
+            
+            debug('JukeboxEntity: Played vinyl scratch and music sample proximity sound');
+        } catch (err) {
+            console.error(`JukeboxEntity: Error playing proximity sound: ${err.message}`);
+        }
+    }
+    
+    /**
+     * Play a vinyl record scratch and music sample sound when player approaches
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const duration = 2.5; // seconds
+            
+            // Create an audio buffer for our combined effect
+            const bufferSize = audioCtx.sampleRate * duration;
+            const buffer = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            const leftChannel = buffer.getChannelData(0);
+            const rightChannel = buffer.getChannelData(1);
+            
+            // Part 1: Vinyl record scratch (~0.7 seconds)
+            const scratchDuration = 0.7; // seconds
+            const scratchSamples = Math.floor(scratchDuration * audioCtx.sampleRate);
+            
+            // Vinyl scratch parameters
+            const scratchIntensity = 0.8;
+            const scratchSpeed = 30;
+            
+            for (let i = 0; i < scratchSamples; i++) {
+                const t = i / audioCtx.sampleRate;
+                
+                // Envelope for scratch (start strong, fade out)
+                const env = 1 - (i / scratchSamples);
+                
+                // Base scratch noise - filtered noise with rapid pitch changes
+                const noise = Math.random() * 2 - 1;
+                
+                // Forward-backward motion for scratch effect
+                const scratchPattern = Math.sin(t * scratchSpeed * (1 + t * 5));
+                
+                // Combine with a resonant filter effect
+                const resonance = Math.sin(2 * Math.PI * 500 * t) * Math.exp(-t * 10) * 0.3;
+                
+                // Add crackle for authentic vinyl sound
+                const crackle = (Math.random() > 0.98) ? Math.random() * 0.3 : 0;
+                
+                // Combine components
+                const scratch = ((noise * 0.4 + scratchPattern * 0.6) * scratchIntensity + resonance + crackle) * env;
+                
+                // Stereo effect
+                leftChannel[i] = scratch * 0.9;
+                rightChannel[i] = scratch * 0.8;
+            }
+            
+            // Small gap between scratch and music
+            const gapSamples = Math.floor(0.1 * audioCtx.sampleRate);
+            
+            // Part 2: Brief music sample (notes from a melody)
+            const sampleStartIndex = scratchSamples + gapSamples;
+            const musicDuration = duration - scratchDuration - 0.1; // Remaining time after scratch and gap
+            const musicSamples = Math.floor(musicDuration * audioCtx.sampleRate);
+            
+            // Define a short funky bassline with beat
+            const notes = [
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2 repeat
+                { freq: 146.83, duration: 0.12, type: 'bass' }, // D3
+                { freq: 110, duration: 0.12, type: 'bass' }, // A2
+                { freq: 164.81, duration: 0.2, type: 'bass' }, // E3
+                { freq: 220, duration: 0.1, type: 'bass' }, // A3
+                { freq: 220, duration: 0.1, type: 'bass' } // A3 repeat
+            ];
+            
+            // Add a few high chord stabs
+            const chordStabs = [
+                { time: 0.3, duration: 0.1 },
+                { time: 0.7, duration: 0.1 }
+            ];
+            
+            // Drum beat pattern (kick on 1 and 3, snare on 2 and 4)
+            const beats = [
+                { time: 0, type: 'kick' },
+                { time: 0.25, type: 'snare' },
+                { time: 0.5, type: 'kick' },
+                { time: 0.75, type: 'snare' }
+            ];
+            
+            // Generate music section
+            let noteStartTime = 0;
+            
+            // Add bass notes
+            for (let i = 0; i < notes.length && noteStartTime < musicDuration; i++) {
+                const note = notes[i];
+                const noteSamples = Math.floor(note.duration * audioCtx.sampleRate);
+                const noteEndTime = noteStartTime + note.duration;
+                const startIndex = sampleStartIndex + Math.floor(noteStartTime * audioCtx.sampleRate);
+                
+                for (let j = 0; j < noteSamples; j++) {
+                    if (startIndex + j >= bufferSize) break;
+                    
+                    const t = j / audioCtx.sampleRate;
+                    const noteEnvelope = Math.min(1, (j / 1000)) * Math.min(1, (noteSamples - j) / 1000);
+                    
+                    // Bass sound - sine with overtones
+                    const bassSound = Math.sin(2 * Math.PI * note.freq * t) * 0.6 + 
+                                    Math.sin(2 * Math.PI * note.freq * 2 * t) * 0.2 + 
+                                    Math.sin(2 * Math.PI * note.freq * 3 * t) * 0.1;
+                    
+                    // Apply exponential decay
+                    const noteValue = bassSound * noteEnvelope * 0.5;
+                    
+                    // Mix into buffer
+                    leftChannel[startIndex + j] += noteValue;
+                    rightChannel[startIndex + j] += noteValue;
+                }
+                
+                noteStartTime = noteEndTime;
+            }
+            
+            // Add chord stabs
+            for (const stab of chordStabs) {
+                if (stab.time >= musicDuration) continue;
+                
+                const stabSamples = Math.floor(stab.duration * audioCtx.sampleRate);
+                const startIndex = sampleStartIndex + Math.floor(stab.time * audioCtx.sampleRate);
+                
+                // Define chord frequencies (A minor 7th: A C E G)
+                const chordFreqs = [440, 523.25, 659.25, 392];
+                
+                for (let j = 0; j < stabSamples; j++) {
+                    if (startIndex + j >= bufferSize) break;
+                    
+                    const t = j / audioCtx.sampleRate;
+                    const stabEnvelope = Math.exp(-j / (stabSamples / 5)); // Fast decay
+                    
+                    // Generate chord tones
+                    let chordSound = 0;
+                    for (const freq of chordFreqs) {
+                        chordSound += Math.sin(2 * Math.PI * freq * t) * 0.15;
+                    }
+                    
+                    // Apply envelope
+                    const chordValue = chordSound * stabEnvelope * 0.3;
+                    
+                    // Mix into buffer with slight stereo spread
+                    leftChannel[startIndex + j] += chordValue * 1.1;
+                    rightChannel[startIndex + j] += chordValue * 0.9;
+                }
+            }
+            
+            // Add drum beats
+            for (let bar = 0; bar < 2; bar++) { // Two bars of beats
+                for (const beat of beats) {
+                    const beatTime = beat.type === 'kick' ? 0.05 : 0.08; // Kick is shorter than snare
+                    const beatStart = bar + beat.time;
+                    
+                    if (beatStart >= musicDuration) continue;
+                    
+                    const beatSamples = Math.floor(beatTime * audioCtx.sampleRate);
+                    const startIndex = sampleStartIndex + Math.floor(beatStart * audioCtx.sampleRate);
+                    
+                    for (let j = 0; j < beatSamples; j++) {
+                        if (startIndex + j >= bufferSize) break;
+                        
+                        const t = j / audioCtx.sampleRate;
+                        let beatValue = 0;
+                        
+                        if (beat.type === 'kick') {
+                            // Kick drum - sine wave with exponential pitch drop
+                            const kickFreq = 120 * Math.exp(-t * 20) + 60;
+                            beatValue = Math.sin(2 * Math.PI * kickFreq * t) * Math.exp(-t * 20) * 0.7;
+                        } else {
+                            // Snare - filtered noise with resonance
+                            const snareNoise = Math.random() * 2 - 1;
+                            const snareResonance = Math.sin(2 * Math.PI * 900 * t) * Math.exp(-t * 20) * 0.3;
+                            beatValue = (snareNoise * 0.5 + snareResonance) * Math.exp(-t * 10) * 0.6;
+                        }
+                        
+                        // Mix into buffer
+                        leftChannel[startIndex + j] += beatValue * 0.45;
+                        rightChannel[startIndex + j] += beatValue * 0.45;
+                    }
+                }
+            }
+            
+            // Final normalization to prevent clipping
+            let maxSample = 0;
+            for (let i = 0; i < bufferSize; i++) {
+                maxSample = Math.max(maxSample, Math.abs(leftChannel[i]), Math.abs(rightChannel[i]));
+            }
+            
+            if (maxSample > 0.8) {
+                const normalizationFactor = 0.8 / maxSample;
+                for (let i = 0; i < bufferSize; i++) {
+                    leftChannel[i] *= normalizationFactor;
+                    rightChannel[i] *= normalizationFactor;
+                }
+            }
+            
+            // Create source node and connect to destination
+            const source = audioCtx.createBufferSource();
+            source.buffer = buffer;
+            
+            // Add filtering
+            const filter = audioCtx.createBiquadFilter();
+            filter.type = 'highshelf';
+            filter.frequency.value = 4000;
+            filter.gain.value = -6; // Cut some highs for vintage feel
+            
+            // Add a compressor for punch
+            const compressor = audioCtx.createDynamicsCompressor();
+            compressor.threshold.value = -24;
+            compressor.knee.value = 10;
+            compressor.ratio.value = 4;
+            compressor.attack.value = 0.005;
+            compressor.release.value = 0.05;
+            
+            // Master gain
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.6;
+            
+            // Connect nodes
+            source.connect(filter);
+            filter.connect(compressor);
+            compressor.connect(masterGain);
+            masterGain.connect(audioCtx.destination);
+            
+            // Play sound
+            source.start();
+            
+            // Schedule cleanup
+            setTimeout(() => {
+                try {
+                    source.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up jukebox sound:', err);
+                }
+            }, duration * 1000);
+            
+            debug('JukeboxEntity: Played vinyl scratch and music sample proximity sound');
+        } catch (err) {
+            console.error(`JukeboxEntity: Error playing proximity sound: ${err.message}`);
         }
     }
     

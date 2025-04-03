@@ -251,6 +251,9 @@ export class SpellbookEntity extends Entity {
             // Log state changes
             if (!wasNearby && this.isPlayerNearby) {
                 debug(`SpellbookEntity: Player entered interaction range (${distance.toFixed(2)} units)`);
+                
+                // Play magical proximity sound when player enters range
+                this.playProximitySound();
             } else if (wasNearby && !this.isPlayerNearby) {
                 debug(`SpellbookEntity: Player left interaction range (${distance.toFixed(2)} units)`);
             }
@@ -1032,5 +1035,108 @@ export class SpellbookEntity extends Entity {
        ctx.fillText('[ ENTER ]', x, y + 25);
 
         ctx.restore();
+    }
+    
+    /**
+     * Play a magical proximity sound when player approaches the spellbook
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create a magical descending arpeggio using mystical intervals
+            // These notes form a pentatonic minor scale which sounds mystical
+            const magicalNotes = [587.33, 523.25, 440.00, 392.00, 329.63];
+            const durations = [0.15, 0.15, 0.15, 0.15, 0.3];
+            
+            // Create a common gain node for the overall sound
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            masterGain.connect(audioCtx.destination);
+            
+            // Create a convolver for magical reverb effect
+            const convolver = audioCtx.createConvolver();
+            
+            // Generate impulse response for magical shimmer reverb
+            const reverbLength = audioCtx.sampleRate * 2; // 2 seconds reverb tail
+            const impulse = audioCtx.createBuffer(2, reverbLength, audioCtx.sampleRate);
+            const impulseL = impulse.getChannelData(0);
+            const impulseR = impulse.getChannelData(1);
+            
+            // Fill buffer with decaying random values for reverb effect
+            for(let i = 0; i < reverbLength; i++) {
+                // Exponential decay
+                const decay = Math.exp(-i / (audioCtx.sampleRate * 0.5));
+                // Randomize for diffusion with slight shimmer effect
+                impulseL[i] = (Math.random() * 2 - 1) * decay * 0.5;
+                impulseR[i] = (Math.random() * 2 - 1) * decay * 0.5;
+            }
+            
+            convolver.buffer = impulse;
+            convolver.connect(masterGain);
+            
+            // Add a slight delay effect for magic echoes
+            const delay = audioCtx.createDelay(0.5);
+            delay.delayTime.value = 0.3;
+            
+            const delayGain = audioCtx.createGain();
+            delayGain.gain.value = 0.2;
+            
+            // Play each note in sequence to create the arpeggio
+            let startTime = audioCtx.currentTime;
+            
+            magicalNotes.forEach((note, i) => {
+                // Create main oscillator for the note
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine';
+                osc.frequency.value = note;
+                
+                // Create a secondary oscillator for harmonic shimmer
+                const shimmerOsc = audioCtx.createOscillator();
+                shimmerOsc.type = 'triangle';
+                shimmerOsc.frequency.value = note * 1.5; // Harmonic shimmer
+                
+                // Individual note envelope
+                const noteGain = audioCtx.createGain();
+                noteGain.gain.setValueAtTime(0.0, startTime);
+                noteGain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+                noteGain.gain.exponentialRampToValueAtTime(0.01, startTime + durations[i]);
+                
+                // Connect primary oscillator
+                osc.connect(noteGain);
+                
+                // Connect shimmer at lower volume
+                const shimmerGain = audioCtx.createGain();
+                shimmerGain.gain.value = 0.03;
+                shimmerOsc.connect(shimmerGain);
+                shimmerGain.connect(noteGain);
+                
+                // Connect note to effects and output
+                noteGain.connect(convolver);
+                noteGain.connect(delay);
+                delay.connect(delayGain);
+                delayGain.connect(convolver);
+                noteGain.connect(masterGain);
+                
+                // Schedule note start and stop
+                osc.start(startTime);
+                osc.stop(startTime + durations[i] + 0.05);
+                
+                shimmerOsc.start(startTime);
+                shimmerOsc.stop(startTime + durations[i] + 0.05);
+                
+                // Move to next note
+                startTime += durations[i];
+            });
+            
+            // Schedule context closure after all notes have played plus reverb tail
+            setTimeout(() => {
+                audioCtx.close();
+            }, (startTime - audioCtx.currentTime + 2.5) * 1000);
+            
+            debug(`SpellbookEntity: Played magical proximity sound`);
+        } catch (err) {
+            debug(`SpellbookEntity: Error playing proximity sound: ${err.message}`);
+        }
     }
 }

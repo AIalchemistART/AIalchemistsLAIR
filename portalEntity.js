@@ -183,6 +183,9 @@ export class PortalEntity extends Entity {
             // Log state changes
             if (!wasNearby && this.isPlayerNearby) {
                 console.log(`PortalEntity: Player entered interaction range (${distance.toFixed(2)} units)`);
+                
+                // Play vortex/whoosh sound when player enters range
+                this.playProximitySound();
             } else if (wasNearby && !this.isPlayerNearby) {
                 console.log(`PortalEntity: Player left interaction range (${distance.toFixed(2)} units)`);
             }
@@ -481,6 +484,163 @@ export class PortalEntity extends Entity {
         ctx.fillText('[ ENTER ]', x, y + 15);
         
         ctx.restore();
+    }
+    
+    /**
+     * Play a lower-pitched vortex/whoosh sound when player approaches the portal
+     */
+    playProximitySound() {
+        try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Create noise buffer for the whoosh base - longer for lower pitch feel
+            const bufferSize = audioCtx.sampleRate * 1.8; // 1.8 seconds of sound (longer than original 1.5)
+            const noiseBuffer = audioCtx.createBuffer(2, bufferSize, audioCtx.sampleRate);
+            
+            // Fill buffer with noise
+            const leftChannel = noiseBuffer.getChannelData(0);
+            const rightChannel = noiseBuffer.getChannelData(1);
+            
+            // Create noise with a specific envelope for whoosh effect
+            for(let i = 0; i < bufferSize; i++) {
+                // Position as a normalized value (0 to 1)
+                const position = i / bufferSize;
+                
+                // Envelope shape - start low, build up, then fade
+                // This creates the classic 'whoosh' shape
+                let envelope;
+                if (position < 0.2) {
+                    // Initial build up
+                    envelope = position * 5 * 0.2; // Ramp up to 0.2
+                } else if (position < 0.4) {
+                    // Continue rising
+                    envelope = 0.2 + (position - 0.2) * 5 * 0.6; // Ramp up to 0.8
+                } else if (position < 0.7) {
+                    // Peak and begin descent
+                    envelope = 0.8 - (position - 0.4) * (0.8 / 0.3) * 0.5; // Drop to 0.4
+                } else {
+                    // Tail off
+                    envelope = 0.4 * (1 - (position - 0.7) / 0.3);
+                }
+                
+                // Add some variation between channels
+                leftChannel[i] = (Math.random() * 2 - 1) * envelope;
+                rightChannel[i] = (Math.random() * 2 - 1) * envelope;
+            }
+            
+            // Create noise source node
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            
+            // Create a bandpass filter for the 'whoosh' sound - LOWER frequencies for return portal
+            const bandpass = audioCtx.createBiquadFilter();
+            bandpass.type = 'bandpass';
+            bandpass.frequency.setValueAtTime(60, audioCtx.currentTime); // Lower starting frequency (60 vs 100)
+            bandpass.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.8); // Lower peak (1200 vs 2000) and slower sweep
+            bandpass.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 1.8); // Lower ending (300 vs 500)
+            bandpass.Q.value = 1.3; // Wider bandwidth for more rumble
+            
+            // Create a lowpass filter to emphasize deeper tones instead of a highpass
+            const lowpass = audioCtx.createBiquadFilter();
+            lowpass.type = 'lowpass';
+            lowpass.frequency.value = 800; // Only allow lower frequencies through
+            
+            // Create an LFO for wobble effect - slower for lower pitch feel
+            const lfo = audioCtx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.value = 0.5; // Slower modulation (0.5 vs 0.8)
+            
+            const lfoGain = audioCtx.createGain();
+            lfoGain.gain.value = 120; // Stronger modulation for heavier effect
+            
+            // Create master gain node for overall volume - slower attack/release for lower pitch
+            const masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.05, audioCtx.currentTime); // Start quieter
+            masterGain.gain.linearRampToValueAtTime(0.35, audioCtx.currentTime + 0.6); // Slower ramp up, louder peak
+            masterGain.gain.linearRampToValueAtTime(0.1, audioCtx.currentTime + 1.8); // Slower fade out
+            
+            // Add reverb/echo effect - longer for lower pitch
+            const convolver = audioCtx.createConvolver();
+            const reverbLength = audioCtx.sampleRate * 1.5; // Longer reverb (1.5 vs 1.0)
+            const reverbBuffer = audioCtx.createBuffer(2, reverbLength, audioCtx.sampleRate);
+            const reverbLeftChannel = reverbBuffer.getChannelData(0);
+            const reverbRightChannel = reverbBuffer.getChannelData(1);
+            
+            // Create reverb impulse - slower decay for lower pitch
+            for(let i = 0; i < reverbLength; i++) {
+                const decay = Math.exp(-i / (audioCtx.sampleRate * 0.5)); // Slower decay (0.5 vs 0.3)
+                // Add subtle low frequency oscillation to reverb
+                const lfo = Math.sin(i / (audioCtx.sampleRate * 0.3)) * 0.1;
+                reverbLeftChannel[i] = ((Math.random() * 2 - 1) + lfo) * decay;
+                reverbRightChannel[i] = ((Math.random() * 2 - 1) - lfo) * decay;
+            }
+            
+            convolver.buffer = reverbBuffer;
+            
+            // Connect LFO to bandpass frequency
+            lfo.connect(lfoGain);
+            lfoGain.connect(bandpass.frequency);
+            
+            // Connect main audio path
+            noiseSource.connect(bandpass);
+            bandpass.connect(lowpass); // Using lowpass instead of highpass for lower tone
+            lowpass.connect(convolver);
+            convolver.connect(masterGain);
+            lowpass.connect(masterGain); // Parallel dry signal
+            masterGain.connect(audioCtx.destination);
+            
+            // Start sound
+            noiseSource.start();
+            lfo.start();
+            
+            // Add a deeper tonal element for the 'vortex' quality - lower pitched
+            const toneOsc = audioCtx.createOscillator();
+            toneOsc.type = 'sine';
+            toneOsc.frequency.setValueAtTime(300, audioCtx.currentTime); // Lower starting (300 vs 600)
+            toneOsc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 1.8); // Lower ending (80 vs 150)
+            
+            const toneGain = audioCtx.createGain();
+            toneGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            toneGain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + 0.4); // Slower attack, stronger presence
+            toneGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.8);
+            
+            toneOsc.connect(toneGain);
+            toneGain.connect(masterGain);
+            toneOsc.start();
+            toneOsc.stop(audioCtx.currentTime + 1.8);
+            
+            // Add a low rumble oscillator for the return portal
+            const rumbleOsc = audioCtx.createOscillator();
+            rumbleOsc.type = 'triangle';
+            rumbleOsc.frequency.setValueAtTime(50, audioCtx.currentTime);
+            rumbleOsc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.8);
+            rumbleOsc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 1.8);
+            
+            const rumbleGain = audioCtx.createGain();
+            rumbleGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            rumbleGain.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.5); // Subtle but noticeable
+            rumbleGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.8);
+            
+            rumbleOsc.connect(rumbleGain);
+            rumbleGain.connect(masterGain);
+            rumbleOsc.start();
+            rumbleOsc.stop(audioCtx.currentTime + 1.8);
+            
+            // Schedule cleanup - longer for lower-pitched sound
+            setTimeout(() => {
+                try {
+                    lfo.stop();
+                    noiseSource.stop();
+                    audioCtx.close();
+                } catch (err) {
+                    console.warn('Error cleaning up portal sound:', err);
+                }
+            }, 1800); // 1.8 seconds instead of 1.5
+            
+            debug('PortalEntity: Played lower-pitched vortex/whoosh proximity sound');
+        } catch (err) {
+            console.error(`PortalEntity: Error playing proximity sound: ${err.message}`);
+        }
     }
     
     /**
