@@ -1,9 +1,12 @@
 /**
  * KeyDiagnostic.js - Enhanced keyboard diagnostics for AI Alchemist's Lair
  * Provides a fail-safe system to detect and log all keyboard events at the document level
+ * 
+ * NOTE: This diagnostic module has been disabled for deployment.
+ * The code is kept for reference but will not create any visual elements or log output.
  */
 
-// Create a global keyboard diagnostic system
+// Create a global keyboard diagnostic system (disabled for deployment)
 const keyDiagnostic = {
     // Track all Enter key presses at document level
     capturedKeys: [],
@@ -11,17 +14,20 @@ const keyDiagnostic = {
     // Track if the diagnostic is initialized
     initialized: false,
     
+    // Diagnostic is disabled for deployment
+    enabled: false,
+    
     // Add a DOM-level event listener that will catch ALL keyboard events
     initialize() {
-        if (this.initialized) return;
+        if (this.initialized || !this.enabled) return;
         
-        console.log('🔍 KeyDiagnostic: Initializing diagnostic key capture system');
+        // Disabled console logging for deployment
         
         // Add document-level event listeners that will capture ALL keyboard events
         document.addEventListener('keydown', this.handleKeyDown.bind(this), true);
         document.addEventListener('keyup', this.handleKeyUp.bind(this), true);
         
-        // Create diagnostic overlay
+        // Create diagnostic overlay - disabled for deployment
         this.createDiagnosticOverlay();
         
         // Set up polling to check for input module synchronization
@@ -32,6 +38,8 @@ const keyDiagnostic = {
     
     // Handle key down events at document level
     handleKeyDown(event) {
+        if (!this.enabled) return;
+        
         // We're specifically interested in Enter key variants
         if (event.key === 'Enter' || event.key === 'NumpadEnter') {
             const keyData = {
@@ -49,11 +57,10 @@ const keyDiagnostic = {
                 this.capturedKeys.shift();
             }
             
-            // Log this capture
-            console.log('🔍 KeyDiagnostic CAPTURE:', keyData);
+            // Log this capture - disabled for deployment
             
-            // Update diagnostic overlay
-            this.updateDiagnosticOverlay();
+            // Update diagnostic overlay - disabled for deployment
+            // this.updateDiagnosticOverlay();
             
             // Force manual trigger of entity checking as a fallback
             this.triggerEntityChecks();
@@ -62,6 +69,8 @@ const keyDiagnostic = {
     
     // Handle key up events at document level
     handleKeyUp(event) {
+        if (!this.enabled) return;
+        
         // We're specifically interested in Enter key variants
         if (event.key === 'Enter' || event.key === 'NumpadEnter') {
             const keyData = {
@@ -79,16 +88,18 @@ const keyDiagnostic = {
                 this.capturedKeys.shift();
             }
             
-            // Log this capture
-            console.log('🔍 KeyDiagnostic CAPTURE:', keyData);
+            // Log this capture - disabled for deployment
             
-            // Update diagnostic overlay
-            this.updateDiagnosticOverlay();
+            // Update diagnostic overlay - disabled for deployment
+            // this.updateDiagnosticOverlay();
         }
     },
     
-    // Create a diagnostic overlay for visual feedback
+    // Create a diagnostic overlay for visual feedback (disabled for deployment)
     createDiagnosticOverlay() {
+        // Disabled for deployment
+        if (!this.enabled) return;
+        
         const overlay = document.createElement('div');
         overlay.id = 'keyDiagnosticOverlay';
         overlay.style.position = 'fixed';
@@ -104,6 +115,7 @@ const keyDiagnostic = {
         overlay.style.maxWidth = '300px';
         overlay.style.maxHeight = '150px';
         overlay.style.overflowY = 'auto';
+        overlay.style.display = 'none'; // Explicitly hidden
         overlay.innerHTML = '<strong>Key Diagnostic Active</strong><br>Waiting for Enter key...';
         
         document.body.appendChild(overlay);

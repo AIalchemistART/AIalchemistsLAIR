@@ -14,39 +14,16 @@ let testsRunning = false;
  */
 export function initDebugControls() {
     // Add event listener for keyboard shortcuts
-    window.addEventListener('keydown', (event) => {
-        // Run scene tests with L key
-        if ((event.key === 'l' || event.key === 'L') && !testsRunning) {
-            console.log('Debug shortcut activated: Running scene tests');
-            testsRunning = true;
-            
-            // Run tests asynchronously
-            runSceneTests().then(() => {
-                testsRun = true;
-                testsRunning = false;
-            }).catch(err => {
-                console.error('Error in scene tests:', err);
-                testsRunning = false;
-            });
-            
-            event.preventDefault();
-        }
-    });
+    // L key debug handler disabled for deployment
+    // window.addEventListener('keydown', (event) => {
+    //     // Run scene tests with L key - DISABLED FOR DEPLOYMENT
+    //     if ((event.key === 'l' || event.key === 'L') && !testsRunning) {
+    //         // Scene test functionality disabled for deployment
+    //     }
+    // });
     
-    // Auto-run tests on startup if in test mode
-    // This can be controlled via URL parameter: ?test=scene
-    if (window.location.search.includes('test=scene') && !testsRun && !testsRunning) {
-        console.log('Auto-running scene tests based on URL parameter');
-        // Slight delay to ensure system is fully initialized
-        setTimeout(() => {
-            testsRunning = true;
-            runSceneTests().then(() => {
-                testsRun = true;
-                testsRunning = false;
-            }).catch(err => {
-                console.error('Error in scene tests:', err);
-                testsRunning = false;
-            });
-        }, 500);
-    }
+    // Auto-run tests functionality disabled for deployment
+    // if (window.location.search.includes('test=scene') && !testsRun && !testsRunning) {
+    //     // Scene test auto-run disabled for deployment
+    // }
 }

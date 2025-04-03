@@ -4,7 +4,7 @@
  */
 
 import { VibePortalEntity } from './vibePortalEntity.js';
-import { debug } from './utils.js';
+import { debug, info } from './utils.js';
 
 export class VibePortalManager {
     /**
@@ -15,10 +15,35 @@ export class VibePortalManager {
         this.game = game;
         this.portals = [];
         
+        // Check URL parameters to determine if the return portal should be shown
+        this.shouldShowReturnPortal = this.checkPortalVisibility();
+        
         // Setup portal event listeners
         this.setupEventListeners();
         
         debug('VibePortalManager: Initialized');
+        info(`VibePortalManager: Return portal visibility: ${this.shouldShowReturnPortal ? 'VISIBLE' : 'HIDDEN'}`);
+    }
+    
+    /**
+     * Check URL parameters to determine if the return portal should be shown
+     * @returns {boolean} - Whether the return portal should be shown
+     */
+    checkPortalVisibility() {
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        // Check if portal=true and ref parameter exists
+        const portalParam = urlParams.get('portal');
+        const refParam = urlParams.get('ref');
+        
+        // Return portal should only be visible when portal=true and ref exists
+        const isVisible = portalParam === 'true' && refParam !== null;
+        
+        debug('VibePortalManager: URL parameters -', { portal: portalParam, ref: refParam });
+        debug(`VibePortalManager: Return portal visibility determined to be ${isVisible ? 'VISIBLE' : 'HIDDEN'}`);
+        
+        return isVisible;
     }
     
     /**
@@ -134,9 +159,12 @@ export class VibePortalManager {
      * @param {Object} exitOptions - Options for exit portal
      */
     addPortals(startOptions = {}, exitOptions = {}) {
-        // Add start portal if specified
-        if (startOptions.enabled !== false) {
+        // Add start portal only if URL parameters indicate it should be shown
+        if (startOptions.enabled !== false && this.shouldShowReturnPortal) {
+            info('VibePortalManager: Adding return portal - Player arrived via external portal');
             this.addStartPortal(startOptions);
+        } else if (startOptions.enabled !== false && !this.shouldShowReturnPortal) {
+            info('VibePortalManager: Return portal not shown - Normal game entry detected');
         }
         
         // Add exit portal if specified

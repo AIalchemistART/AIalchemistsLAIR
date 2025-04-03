@@ -5,7 +5,7 @@
 
 // Debug configuration
 const DEBUG_CONFIG = {
-    SHOW_FPS: true,          // Toggle FPS counter display
+    SHOW_FPS: false,         // FPS counter disabled for deployment
     FPS_TEXT_COLOR: '#00ffcc', // Neon cyan to match the medieval-cyberpunk theme
     FPS_BACKGROUND: 'rgba(0, 0, 0, 0.5)',
     FPS_FONT: '14px monospace',
@@ -72,12 +72,12 @@ function toggleFpsDisplay() {
     console.log(`FPS Counter: ${DEBUG_CONFIG.SHOW_FPS ? 'Visible' : 'Hidden'}`);
 }
 
-// Add key binding to toggle FPS display (F key)
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'f' || event.key === 'F') {
-        toggleFpsDisplay();
-    }
-});
+// F key toggle for FPS counter disabled for deployment
+// document.addEventListener('keydown', (event) => {
+//     if (event.key === 'f' || event.key === 'F') {
+//         toggleFpsDisplay();
+//     }
+// });
 
 export { 
     drawFpsCounter, 

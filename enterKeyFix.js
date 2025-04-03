@@ -6,6 +6,9 @@
  * 
  * It uses a direct approach by capturing Enter key events at the document level and
  * manually checking nearby entities for interaction.
+ * 
+ * NOTE: This diagnostic module has been disabled for deployment.
+ * The core functionality remains but with diagnostic logging removed.
  */
 
 // Create a global solution to the Enter key problem
@@ -19,11 +22,16 @@ const enterKeyFix = {
     // Current state of the enter key
     enterKeyState: false,
     
+    // Disable diagnostic logging for deployment
+    enableLogging: false,
+    
     // Initialize the fix
     initialize() {
         if (this.initialized) return;
         
-        console.log('🔑 Enter Key Fix: Initializing global Enter key handler');
+        if (this.enableLogging) {
+            console.log('🔑 Enter Key Fix: Initializing global Enter key handler');
+        }
         
         // Add document-level event listeners with capturing phase to catch ALL key events
         document.addEventListener('keydown', this.handleKeyDown.bind(this), true);
@@ -40,7 +48,9 @@ const enterKeyFix = {
     handleKeyDown(event) {
         // We're only interested in Enter key variants
         if (event.key === 'Enter' || event.key === 'NumpadEnter') {
-            console.log(`🔑 Enter Key Fix: ${event.key} pressed, propagating to game`);
+            if (this.enableLogging) {
+                console.log(`🔑 Enter Key Fix: ${event.key} pressed, propagating to game`);
+            }
             
             // Store state
             this.enterKeyState = true;
@@ -65,7 +75,9 @@ const enterKeyFix = {
     handleKeyUp(event) {
         // We're only interested in Enter key variants
         if (event.key === 'Enter' || event.key === 'NumpadEnter') {
-            console.log(`🔑 Enter Key Fix: ${event.key} released`);
+            if (this.enableLogging) {
+                console.log(`🔑 Enter Key Fix: ${event.key} released`);
+            }
             
             // Store state
             this.enterKeyState = false;
@@ -144,13 +156,12 @@ const enterKeyFix = {
 
 // Initialize the fix when the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('🔑 Enter Key Fix: DOM ready, initializing...');
+    // Disabled console logging for deployment
     enterKeyFix.initialize();
     
     // Also try to initialize after a short delay in case the DOM event already fired
     setTimeout(() => {
         if (!enterKeyFix.initialized) {
-            console.log('🔑 Enter Key Fix: Retrying initialization after delay');
             enterKeyFix.initialize();
         }
     }, 1000);
@@ -158,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Initialize immediately if DOM is already loaded
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    console.log('🔑 Enter Key Fix: Document already loaded, initializing immediately');
+    // Disabled console logging for deployment
     enterKeyFix.initialize();
 }
 

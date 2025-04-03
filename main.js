@@ -357,20 +357,22 @@ if (compatibilityResults.allCriticalSupported) {
                 debug('Jump triggered with spacebar');
             }
             
-            // Toggle collision boxes with 'B' key
-            if (e.key === 'b' || e.key === 'B') {
-                game.toggleDebugFeature('collision');
-            }
+            // Debug toggle keys disabled for deployment
             
-            // Toggle spatial grid with 'G' key
-            if (e.key === 'g' || e.key === 'G') {
-                game.toggleDebugFeature('grid');
-            }
+            // Toggle collision boxes with 'B' key - DISABLED FOR DEPLOYMENT
+            // if (e.key === 'b' || e.key === 'B') {
+            //     game.toggleDebugFeature('collision');
+            // }
             
-            // Toggle entity info with 'I' key
-            if (e.key === 'i' || e.key === 'I') {
-                game.toggleDebugFeature('info');
-            }
+            // Toggle spatial grid with 'G' key - DISABLED FOR DEPLOYMENT
+            // if (e.key === 'g' || e.key === 'G') {
+            //     game.toggleDebugFeature('grid');
+            // }
+            
+            // Toggle entity info with 'I' key - DISABLED FOR DEPLOYMENT
+            // if (e.key === 'i' || e.key === 'I') {
+            //     game.toggleDebugFeature('info');
+            // }
             
             // Camera smoothness adjustment with number keys 0-9
             if (!isNaN(parseInt(e.key)) && parseInt(e.key) >= 0 && parseInt(e.key) <= 9) {
@@ -403,38 +405,12 @@ if (compatibilityResults.allCriticalSupported) {
             }
         });
 
-        // Direct test for 'T' key - outside of game loop
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 't' || e.key === 'T') {
-                console.log('[KEY TEST] T key pressed - Direct listener');
-                
-                // Create a visual indicator on screen
-                const indicatorDiv = document.createElement('div');
-                indicatorDiv.style.position = 'absolute';
-                indicatorDiv.style.top = '10px';
-                indicatorDiv.style.left = '10px';
-                indicatorDiv.style.padding = '5px';
-                indicatorDiv.style.background = 'red';
-                indicatorDiv.style.color = 'white';
-                indicatorDiv.style.fontWeight = 'bold';
-                indicatorDiv.style.zIndex = '1000';
-                indicatorDiv.textContent = 'T KEY PRESSED - Creating test entities';
-                document.body.appendChild(indicatorDiv);
-                
-                // Remove after 3 seconds
-                setTimeout(() => {
-                    document.body.removeChild(indicatorDiv);
-                }, 3000);
-                
-                // Create test entities directly
-                try {
-                    game.createTestEntities();
-                    console.log('[DIRECT TEST] Entities created:', game.entities);
-                } catch (err) {
-                    console.error('[DIRECT TEST] Error creating entities:', err);
-                }
-            }
-        });
+        // T key test handler disabled for deployment
+        // window.addEventListener('keydown', (e) => {
+        //     if (e.key === 't' || e.key === 'T') {
+        //         // Test entity creation disabled for deployment
+        //     }
+        // });
 
         function gameLoop(timestamp) {
             try {
@@ -820,10 +796,11 @@ if (compatibilityResults.allCriticalSupported) {
         info(`Middle-click and drag to pan the camera manually`);
         info(`Press 'P' to reset panning`);
         info(`Press 'M' to toggle mini-map`);
-        info(`Press 'B' to toggle collision boxes`);
-        info(`Press 'G' to toggle spatial grid`);
-        info(`Press 'I' to toggle entity info`);
-        info(`Press 'T' to toggle test entities creation`);
+        // Debug toggle key information disabled for deployment
+        // info(`Press 'B' to toggle collision boxes`);
+        // info(`Press 'G' to toggle spatial grid`);
+        // info(`Press 'I' to toggle entity info`);
+        // info(`Press 'T' to toggle test entities creation`);
         info(`Press 'O' to force door open/close`);
         
         // Log any non-critical compatibility warnings

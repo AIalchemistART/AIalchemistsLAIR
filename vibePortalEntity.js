@@ -5,7 +5,7 @@
 
 import { Entity } from './entity.js';
 import assetLoader from './assetLoader.js';
-import { debug } from './utils.js';
+import { debug, info } from './utils.js';
 
 export class VibePortalEntity extends Entity {
     /**
@@ -181,6 +181,14 @@ export class VibePortalEntity extends Entity {
         // Create URL with parameters
         const params = new URLSearchParams();
         params.append('portal', 'true');
+        
+        // Add the current domain as the ref parameter for exit portals
+        if (this.portalType === 'exit') {
+            // Use the current domain as the ref parameter
+            const currentDomain = window.location.hostname || 'alchemistslair.local';
+            params.append('ref', currentDomain);
+            debug(`VibePortalEntity: Adding ref parameter with value: ${currentDomain}`);
+        }
         
         // Add additional parameters if needed
         if (window.selfUsername) {
