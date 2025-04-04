@@ -456,7 +456,7 @@ export class TrophyEntity extends Entity {
             
             // Final gain control
             const masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0.8;
+            masterGain.gain.value = 0.3;
             
             // Set up processing chain
             source.connect(lowShelf);

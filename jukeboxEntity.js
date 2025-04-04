@@ -47,7 +47,7 @@ class JukeboxEntity extends Entity {
         this.glowSpeed = 0.02;
         
         // Interactive properties
-        this.interactionDistance = 4;   // Distance within which player can interact with jukebox
+        this.interactionDistance = 3.25;   // Distance within which player can interact with jukebox
         this.isPlayerNearby = false;      // Tracks if player is close enough to interact
         this.isActive = false;            // Tracks if music player is currently active
         this.wasEnterPressed = false;     // Tracks enter key state to detect press
@@ -1060,7 +1060,7 @@ class JukeboxEntity extends Entity {
             
             // Master gain
             const masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0.6;
+            masterGain.gain.value = 0.3;
             
             // Connect nodes
             source.connect(filter);
@@ -1122,8 +1122,8 @@ class JukeboxEntity extends Entity {
                 console.log(`JukeboxEntity: Image found (${jukeboxImage.width}x${jukeboxImage.height}), drawing actual jukebox`);
                 
                 // Draw jukebox image
-                const jukeboxWidth = width * 1.1;
-                const jukeboxHeight = height * 1.8;
+                const jukeboxWidth = width * 1.32;
+                const jukeboxHeight = height * 2.16;
                 
                 // Position jukebox so it appears grounded at the correct isometric position
                 // Subtract half the width to center horizontally

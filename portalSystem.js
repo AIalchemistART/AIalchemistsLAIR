@@ -98,6 +98,17 @@ class PortalSystem {
             console.error(`Portal ${portalId} not found`);
             return false;
         }
+        
+        // Check if this portal leads to a 'comingSoon' scene
+        if (portal.targetScene === 'comingSoon') {
+            console.log(`Portal ${portalId} leads to a coming soon area. Showing notification instead of transitioning.`);
+            
+            // Play the 'coming soon' notification sound
+            this.playComingSoonSound();
+            
+            // Don't perform the actual transition
+            return false;
+        }
 
         if (this.debug) {
             console.log(`Transitioning through portal ${portalId} to ${portal.targetScene}`);
@@ -189,6 +200,52 @@ class PortalSystem {
             console.log(`Portal ${id}: ${portal.sourceScene} (${portal.gridX},${portal.gridY}) → ${portal.targetScene}`);
         });
         console.log('==========================');
+    }
+    
+    /**
+     * Play a sound effect for the 'Coming Soon' notification
+     * Uses Web Audio API to generate a custom sound
+     */
+    playComingSoonSound() {
+        // Check if we already played recently to prevent sound spam
+        if (this._lastComingSoonSound && (Date.now() - this._lastComingSoonSound < 2000)) {
+            return; // Don't play if we played less than 2 seconds ago
+        }
+        
+        // Record timestamp for cooldown
+        this._lastComingSoonSound = Date.now();
+        
+        // Create audio context
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create oscillator for primary tone
+        const oscillator = audioCtx.createOscillator();
+        oscillator.type = 'square';
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+        oscillator.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.2); // Down to A3
+        
+        // Create gain node for envelope
+        const gainNode = audioCtx.createGain();
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.01);
+        gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+        
+        // Create filter for color
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        filter.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.5);
+        
+        // Connect nodes: oscillator -> filter -> gain -> output
+        oscillator.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        // Start and stop
+        oscillator.start(audioCtx.currentTime);
+        oscillator.stop(audioCtx.currentTime + 0.5);
+        
+        console.log('Playing Coming Soon sound effect');
     }
 }
 

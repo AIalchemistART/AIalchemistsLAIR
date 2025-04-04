@@ -1051,7 +1051,7 @@ export class SpellbookEntity extends Entity {
             
             // Create a common gain node for the overall sound
             const masterGain = audioCtx.createGain();
-            masterGain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             masterGain.connect(audioCtx.destination);
             
             // Create a convolver for magical reverb effect

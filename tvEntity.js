@@ -650,13 +650,13 @@ class TVEntity extends Entity {
                 let envelope;
                 if (t < 0.2) {
                     // Fade in
-                    envelope = t / 0.2 * 0.7; // Max volume of 0.7
+                    envelope = t / 0.2 * 0.5; // Max volume of 0.7
                 } else if (t > duration - 0.3) {
                     // Fade out
-                    envelope = (duration - t) / 0.3 * 0.7;
+                    envelope = (duration - t) / 0.3 * 0.5;
                 } else {
                     // Sustain
-                    envelope = 0.7;
+                    envelope = 0.5;
                 }
                 
                 // Base noise component with slight time-based modulation
@@ -726,7 +726,7 @@ class TVEntity extends Entity {
             
             // Create master gain node
             const masterGain = audioCtx.createGain();
-            masterGain.gain.value = 0.4; // Set volume
+            masterGain.gain.value = 0.2; // Set volume
             
             // Connect nodes together
             staticSource.connect(bandpass);

@@ -236,14 +236,32 @@ class IsometricRenderer {
      * @param {boolean} isOpen - Whether the door is open
      * @param {boolean} doubleHeight - Whether to render a multi-height door
      */
-    renderDoorway(ctx, isoX, isoY, tileWidth, tileHeight, direction, isOpen = false, doubleHeight = false) {
+    renderDoorway(ctx, isoX, isoY, tileWidth, tileHeight, direction, isOpen = false, doubleHeight = false, currentSceneId = '') {
         // Debug door state with formatted output
         console.log(`Rendering door: direction=${direction}, isOpen=${isOpen}`);
         
         // Calculate wall height for consistent dimensions
-        const wallHeight = tileHeight * 3.75;
-        const overlapFactor = 1.30;
+        const wallHeight = tileHeight * 4;
+        const overlapFactor = 1.5;
         const verticalOffset = doubleHeight ? -tileHeight * 0.85 : 0;
+        
+        // Store screen coordinates for use with Coming Soon labels
+        const screenX = isoX;
+        const screenY = isoY + verticalOffset;
+        
+        // Check if we need to render a Coming Soon label
+        // This direct approach ensures wall doorways in the startRoom show Coming Soon labels
+        if (currentSceneId === 'startRoom') {
+            console.log('DOORWAY-DEBUG: Wall doorway in startRoom at', screenX, screenY);
+            
+            // Only proceed if we have the doorway manager available
+            if (window.doorwayManager) {
+                // Call after a short delay to ensure the door is rendered first
+                setTimeout(() => {
+                    window.doorwayManager.renderComingSoonOverDoor(ctx, screenX, screenY - 20);
+                }, 100);
+            }
+        }
 
         // Use the closed door asset as the base (we know this works)
         const doorAssetKey = direction === 'NE' ? 'doorTileNE' : 'doorTileNW';

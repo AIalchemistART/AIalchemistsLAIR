@@ -219,7 +219,7 @@ class Doorway {
         const dx = Math.abs(this.gridX - playerX);
         const dy = Math.abs(this.gridY - playerY);
         const distance = Math.sqrt(dx*dx + dy*dy);
-        const proximityThreshold = 3.0; // Generous radius in grid units
+        const proximityThreshold = .5; // Generous radius in grid units
         
         // For edge doorways, add additional constraints
         if (this.isWallDoorway) {
@@ -377,37 +377,370 @@ class DoorwayManager {
         // Get doorways for current scene
         this.activeDoorways = this.doorwaysByScene[currentScene.id] || [];
         
-        // DEBUG: Show player position clearly in relation to doors
-        console.log(`Player position: (${playerX.toFixed(2)}, ${playerY.toFixed(2)})`);
+        // Disabled general position debug logs to reduce console noise
+        // console.log(`Player position: (${playerX.toFixed(2)}, ${playerY.toFixed(2)})`);
+        
+        // Store doorways that should show "Coming Soon" message
+        this.doorsNeedingComingSoon = [];
         
         // Update doorways and check collisions
         this.activeDoorways.forEach(doorway => {
             // Check if player is near the door using the updated isPlayerColliding method
             const isPlayerNear = doorway.isPlayerColliding(playerX, playerY, scene.cellWidth, scene.cellHeight);
             
-            // DEBUG: Always log door states
-            if (doorway.isWallDoorway) {
+            // Disabled generic door state logs to reduce console noise
+            /*if (doorway.isWallDoorway) {
                 console.log(`Door ${doorway.wallSide} at pos ${doorway.wallSide === 'north' ? doorway.gridX : doorway.gridY}: ` + 
                            `${isPlayerNear ? 'PLAYER NEAR' : 'player far'}, ` +
                            `current state: ${doorway.isOpen ? 'OPEN' : 'CLOSED'}`);
-            }
+            }*/
             
             // Update the doorway with the calculated proximity
             doorway.update(deltaTime, isPlayerNear);
             
-            // Only check for scene transitions with non-wall doorways (portals)
-            if (this.transitionCooldown <= 0 && isPlayerNear && !doorway.isWallDoorway) {
-                if (this.debug) {
-                    console.log(`Player collided with doorway to ${doorway.targetScene}`);
+            // Check if player is near a doorway
+            if (isPlayerNear) {
+                // If we're in the start room, mark ALL doorways for "Coming Soon" messages
+                if (currentScene.id === 'startRoom') {
+                        // Mark doorway by creating a unique identifier based on position rather than object reference
+                    const doorId = doorway.wallSide ? `${doorway.wallSide}_${doorway.gridX}_${doorway.gridY}` : `regular_${doorway.gridX}_${doorway.gridY}`;
+                    doorway.needsComingSoon = true;
+                    doorway.comingSoonId = doorId;
+                    
+                    // Store identifiers instead of object references
+                    if (!this.comingSoonDoorIds) this.comingSoonDoorIds = new Set();
+                    this.comingSoonDoorIds.add(doorId);
+                    
+                    // Add to the array as well (for backward compatibility)
+                    this.doorsNeedingComingSoon.push(doorway);
+                    
+                    console.log('DOORWAY-DEBUG: Marked doorway for Coming Soon', doorId);
+                    
+                    // Play sound effect (but don't spam it)
+                    if (this.transitionCooldown <= 0) {
+                        console.log('SHOWING: Coming Soon - This area is under construction!');
+                        this.playComingSoonSound();
+                        this.transitionCooldown = 3.0; // Seconds before playing sound again
+                    }
                 }
-                
-                // Load target scene
-                sceneManager.loadScene(doorway.targetScene);
-                
-                // Set cooldown to prevent rapid transitions
-                this.transitionCooldown = 0.5; // Seconds
+                // If it's not the start room and this is not a wall doorway, allow transitions
+                else if (this.transitionCooldown <= 0 && !doorway.isWallDoorway && currentScene.id !== 'startRoom') {
+                    if (this.debug) {
+                        console.log(`Player collided with doorway to ${doorway.targetScene}`);
+                    }
+                    
+                    // Load target scene (only if we're not in the startRoom)
+                    sceneManager.loadScene(doorway.targetScene);
+                    
+                    // Set cooldown to prevent rapid transitions
+                    this.transitionCooldown = 0.5; // Seconds
+                }
             }
         });
+    }
+    
+    /**
+     * Show a temporary notification in the center of the screen
+     * @param {string} message - The message to display
+     * @param {string} color - The color of the message
+     */
+    showTemporaryNotification(message, color = '#ffffff') {
+        // Get the game canvas
+        const canvas = document.getElementById('gameCanvas');
+        if (!canvas) return;
+        
+        // Create a notification element
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.position = 'absolute';
+        notification.style.top = '50%';
+        notification.style.left = '50%';
+        notification.style.transform = 'translate(-50%, -50%)';
+        notification.style.color = color;
+        notification.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        notification.style.padding = '20px 40px';
+        notification.style.borderRadius = '10px';
+        notification.style.fontFamily = '"Courier New", monospace';
+        notification.style.fontWeight = 'bold';
+        notification.style.fontSize = '24px';
+        notification.style.textAlign = 'center';
+        notification.style.zIndex = '1000';
+        notification.style.boxShadow = `0 0 20px ${color}`;
+        notification.style.opacity = '0';
+        notification.style.transition = 'opacity 0.5s ease-in-out';
+        
+        // Add notification to the body
+        document.body.appendChild(notification);
+        
+        // Play a notification sound effect
+        this.playComingSoonSound();
+        
+        // Fade in
+        setTimeout(() => {
+            notification.style.opacity = '1';
+        }, 10);
+        
+        // Remove after a delay
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 500);
+        }, 2000);
+    }
+    
+    /**
+     * Render an animated "COMING SOON" message over a door in the isometric environment
+     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+     * @param {number} x - X position on screen
+     * @param {number} y - Y position on screen
+     * @param {number} alpha - Opacity value (0-1)
+     */
+    // This method is no longer used directly - we now use scene.js's drawIsometricLabel
+    renderComingSoonOverDoor(ctx, x, y, alpha = 1.0) {
+        console.log('DOORWAY-DEBUG: Drawing Coming Soon fallback method at', x, y);
+        // This method is left as a fallback but shouldn't be called anymore
+        // The scene.js drawIsometricLabel method will be used instead
+        
+        // Save context for safety
+        ctx.save();
+        
+        // Simple text rendering if needed as fallback
+        ctx.font = 'bold 20px Arial';
+        ctx.fillStyle = 'red';
+        ctx.textAlign = 'center';
+        ctx.fillText('COMING SOON', x, y - 50);
+        
+        // Log for debugging
+        console.log(`Drew fallback COMING SOON at ${x},${y-50}`);
+        
+        // Restore context
+        ctx.restore();
+    }
+    
+    /**
+     * Play a sound effect for the 'Coming Soon' notification
+     * Uses Web Audio API to generate a custom sound
+     */
+    playComingSoonSound() {
+        try {
+            // Initialize audio context if not already done
+            if (!window.audioContext) {
+                window.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            
+            const audioContext = window.audioContext;
+            const masterGain = audioContext.createGain();
+            masterGain.gain.value = 0.4; // Master volume control
+            masterGain.connect(audioContext.destination);
+            
+            // Create a notification sound - electronic, futuristic "access denied" type sound
+            // Main tone - slightly dissonant
+            const oscillator1 = audioContext.createOscillator();
+            oscillator1.type = 'sawtooth';
+            oscillator1.frequency.value = 380; // Higher frequency for alert sound
+            
+            // Secondary tone
+            const oscillator2 = audioContext.createOscillator();
+            oscillator2.type = 'square';
+            oscillator2.frequency.value = 280;
+            
+            // Create gain nodes for shaping the sound
+            const gain1 = audioContext.createGain();
+            const gain2 = audioContext.createGain();
+            
+            // Connect oscillators to their gain nodes
+            oscillator1.connect(gain1);
+            oscillator2.connect(gain2);
+            
+            // Connect gains to master output
+            gain1.connect(masterGain);
+            gain2.connect(masterGain);
+            
+            // Set initial gain values
+            gain1.gain.value = 0;
+            gain2.gain.value = 0;
+            
+            // Start the oscillators
+            const now = audioContext.currentTime;
+            oscillator1.start(now);
+            oscillator2.start(now);
+            
+            // Schedule the envelope
+            // Quick attack
+            gain1.gain.setValueAtTime(0, now);
+            gain1.gain.linearRampToValueAtTime(0.6, now + 0.05);
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.linearRampToValueAtTime(0.3, now + 0.05);
+            
+            // First part - hold briefly
+            gain1.gain.setValueAtTime(0.6, now + 0.1);
+            gain2.gain.setValueAtTime(0.3, now + 0.1);
+            
+            // Quick decay to zero
+            gain1.gain.linearRampToValueAtTime(0, now + 0.3);
+            gain2.gain.linearRampToValueAtTime(0, now + 0.3);
+            
+            // Second part - slight pause then repeat
+            gain1.gain.setValueAtTime(0, now + 0.4);
+            gain1.gain.linearRampToValueAtTime(0.5, now + 0.45);
+            gain2.gain.setValueAtTime(0, now + 0.4);
+            gain2.gain.linearRampToValueAtTime(0.25, now + 0.45);
+            
+            // Final decay
+            gain1.gain.linearRampToValueAtTime(0, now + 0.8);
+            gain2.gain.linearRampToValueAtTime(0, now + 0.8);
+            
+            // Pitch bend for effect
+            oscillator1.frequency.setValueAtTime(380, now);
+            oscillator1.frequency.linearRampToValueAtTime(320, now + 0.3);
+            oscillator1.frequency.setValueAtTime(420, now + 0.4);
+            oscillator1.frequency.linearRampToValueAtTime(280, now + 0.8);
+            
+            oscillator2.frequency.setValueAtTime(280, now);
+            oscillator2.frequency.linearRampToValueAtTime(240, now + 0.3);
+            oscillator2.frequency.setValueAtTime(320, now + 0.4);
+            oscillator2.frequency.linearRampToValueAtTime(200, now + 0.8);
+            
+            // Stop the oscillators
+            oscillator1.stop(now + 1.0);
+            oscillator2.stop(now + 1.0);
+            
+            console.log('Coming Soon sound effect played');
+            
+        } catch (error) {
+            console.error('Error playing Coming Soon sound effect:', error);
+        }
+    }
+    
+    /**
+     * Render Coming Soon labels at all doorway positions in the start room
+     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+     */
+    renderAllComingSoonLabels(ctx) {
+        // Make sure doorPositions array is initialized
+        if (!this.doorPositions) {
+            console.log('DOORWAY-DEBUG: doorPositions array is not initialized');
+            return;
+        }
+        
+        // Debug log to check doorPositions array
+        console.log(`DOORWAY-DEBUG: doorPositions array has ${this.doorPositions.length} items:`, this.doorPositions);
+        
+        // Get canvas dimensions
+        const canvasWidth = ctx.canvas.width;
+        const canvasHeight = ctx.canvas.height;
+        
+        // In isometric view, the player is always in the center of the screen
+        const playerScreenX = canvasWidth / 2;
+        const playerScreenY = canvasHeight / 2;
+        
+        console.log(`DOORWAY-DEBUG: Player at screen center (${playerScreenX}, ${playerScreenY})`);
+        
+        // Process each door position
+        this.doorPositions.forEach(pos => {
+            // Calculate distance to player
+            const dx = pos.x - playerScreenX;
+            const dy = pos.y - playerScreenY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Only show Coming Soon label when player is within proximity distance
+            // Use a distance-based alpha to fade in/out smoothly
+            const proximityThreshold = 400; // Show when within 400 pixels (increased range)
+            const fadeDistance = 150;      // Start fading at 400-150=250 pixels
+            
+            if (distance < proximityThreshold) {
+                // Calculate alpha based on distance (1.0 when close, fades to 0 at threshold)
+                let alpha = 1.0;
+                
+                // If in fade zone, calculate smooth fade
+                if (distance > proximityThreshold - fadeDistance) {
+                    alpha = 1.0 - ((distance - (proximityThreshold - fadeDistance)) / fadeDistance);
+                }
+                
+                console.log(`DOORWAY-DEBUG: Door at (${pos.x}, ${pos.y}) is visible. Distance: ${distance.toFixed(2)}, Alpha: ${alpha.toFixed(2)}`);
+                
+                // Render with calculated alpha
+                this.renderComingSoonOverDoor(ctx, pos.x, pos.y, alpha);
+                
+                // Play sound when we're very close (if not played recently)
+                if (distance < proximityThreshold / 6 && 
+                    (!this._lastComingSoonSound || (Date.now() - this._lastComingSoonSound > 5000))) {
+                    this.playComingSoonSound();
+                    this._lastComingSoonSound = Date.now();
+                    console.log('DOORWAY-DEBUG: Played Coming Soon sound at distance ' + distance.toFixed(2));
+                }
+            } else {
+                console.log(`DOORWAY-DEBUG: Door at (${pos.x}, ${pos.y}) too far. Distance: ${distance.toFixed(2)}`);
+            }
+        });
+    }
+    
+    /**
+     * Render "Coming Soon" message over a door with arcade-style text box
+     * @param {CanvasRenderingContext2D} ctx - Canvas rendering context
+     * @param {number} x - X position on screen
+     * @param {number} y - Y position on screen
+     * @param {number} alpha - Opacity of the message (0-1)
+     */
+    renderComingSoonOverDoor(ctx, x, y, alpha = 1.0) {
+        // Save context
+        ctx.save();
+        
+        // Set the font and alignment
+        ctx.font = 'bold 16px "Courier New", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Measure text for background sizing
+        const text = 'COMING SOON';
+        const textWidth = ctx.measureText(text).width;
+        
+        // Draw background
+        const paddingX = 20;
+        const paddingY = 10;
+        const promptWidth = textWidth + paddingX * 2;
+        const promptHeight = 30 + paddingY;
+        const promptX = x - promptWidth / 2;
+        const promptY = y - promptHeight / 2;
+        
+        // Create arcade-style box with red theme (similar to arcade box but in red)
+        // Background with red gradient
+        const gradient = ctx.createLinearGradient(promptX, promptY, promptX, promptY + promptHeight);
+        gradient.addColorStop(0, `rgba(40, 0, 0, ${0.9 * alpha})`);
+        gradient.addColorStop(0.5, `rgba(80, 0, 0, ${0.8 * alpha})`);
+        gradient.addColorStop(1, `rgba(40, 0, 0, ${0.9 * alpha})`);
+        
+        // Draw background with gradient
+        ctx.fillStyle = gradient;
+        ctx.fillRect(promptX, promptY, promptWidth, promptHeight);
+        
+        // Draw border with glowing effect
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(255, 50, 50, ${alpha})`;
+        ctx.strokeRect(promptX, promptY, promptWidth, promptHeight);
+        
+        // Add inner border for arcade style (like the ENTER to Play Games box)
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = `rgba(255, 100, 100, ${alpha * 0.7})`;
+        ctx.strokeRect(promptX + 3, promptY + 3, promptWidth - 6, promptHeight - 6);
+        
+        // Draw text with glow effect
+        ctx.shadowColor = `rgba(255, 0, 0, ${alpha})`;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.fillText(text, x, y);
+        
+        // Add secondary glow layer for better visibility
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = `rgba(255, 180, 180, ${alpha * 0.8})`;
+        ctx.fillText(text, x, y);
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        
+        // Restore context
+        ctx.restore();
     }
     
     /**
@@ -424,21 +757,44 @@ class DoorwayManager {
         const doorways = this.doorwaysByScene[currentScene.id] || [];
         const sceneName = currentScene.id;
         
+        // Store door positions for Coming Soon messages
+        this.doorPositions = [];
+        
+        // If we're in the start room, prepare to render Coming Soon messages
+        if (sceneName === 'startRoom') {
+            console.log('DOORWAY-DEBUG: Adding Coming Soon positions for startRoom');
+            // Use the EXACT coordinates from the logs without adjustments
+            // Drew isometric "CIRCUIT SANCTUM" label at 288,28.8 with rotation 0°
+            // Drew isometric "NEON PHYLACTERY" label at -230.4,-9.6 with rotation 135°
+            this.doorPositions.push({ x: 288, y: 28.8 });          // CIRCUIT SANCTUM door position
+            this.doorPositions.push({ x: -230.4, y: -9.6 });      // NEON PHYLACTERY door position
+            
+            console.log('DOORWAY-DEBUG: doorPositions array updated:', JSON.stringify(this.doorPositions));
+        }
+        
+        // Keep only essential debug logs for Coming Soon doorway issue
+        if (this.doorsNeedingComingSoon && this.doorsNeedingComingSoon.length > 0) {
+            console.log('DOORWAY-DEBUG: ComingSoon doors:', this.doorsNeedingComingSoon.length);
+        }
+        
         // Render each doorway
         doorways.forEach(doorway => {
             doorway.render(ctx, camera);
             
-            // Always add door labels in startRoom regardless of door type
-            if (sceneName === 'startRoom') {
+            // For non-wall doorways only (wall doorways skip rendering)
+            if (!doorway.isWallDoorway && sceneName === 'startRoom') {
                 // Calculate screen position
                 const screenX = doorway.screenX;
                 const screenY = doorway.screenY;
                 
                 if (!isNaN(screenX) && !isNaN(screenY)) {
+                    // We're now using a simpler approach with standard door labels
                     this.renderDoorLabel(ctx, screenX, screenY, doorway, sceneName);
                 }
             }
         });
+        // We're moving sound logic to the proximity-based system in renderAllComingSoonLabels
+    
     }
     
     /**
@@ -453,11 +809,11 @@ class DoorwayManager {
         if (!this.doors || !this.doors.length) return;
         
         // Find all doors that match this wall and position
-        const matchingDoors = this.doors.filter(door => 
-            door.isWallDoorway && 
+        const matchingDoors = this.doors.filter((door) => { 
+            return door.isWallDoorway && 
             door.wallSide === wallSide && 
-            (wallSide === 'north' ? door.gridX === position : door.gridY === position)
-        );
+            (wallSide === 'north' ? door.gridX === position : door.gridY === position);
+        });
         
         if (!matchingDoors.length) return;
         
@@ -552,25 +908,56 @@ class DoorwayManager {
         
         let labelText = '';
         let glowColor = '';
+        let showComingSoon = false;
+        
+        // Check for the comingSoon flag in the exit definition
+        if (door.comingSoon) {
+            showComingSoon = true;
+            glowColor = '#ff3333'; // Red glow for coming soon
+        }
+        // Also check if this is a doorway in the startRoom that should show 'Coming Soon'
+        else if (destinationId === 'comingSoon') {
+            showComingSoon = true;
+            glowColor = '#ff3333'; // Red glow for coming soon
+        }
+        // Check if this is one of the wall doorways we want to mark as "coming soon"
+        else if (door.isWallDoorway) {
+            if ((door.wallSide === 'north' && currentSceneId === 'startRoom') || 
+                (door.wallSide === 'west' && currentSceneId === 'startRoom')) {
+                // Add coming soon message for the door tiles
+                showComingSoon = true;
+                glowColor = '#ff3333'; // Red glow for coming soon
+            }
+        }
         
         // Map scene IDs to display names and assign glow colors
-        switch (destinationId) {
-            case 'startRoom':
-                labelText = 'NEXUS CORE';
-                glowColor = '#ffd700'; // Gold glow for start room
-                break;
-            case 'neonPhylactery':
-                labelText = 'NEON PHYLACTERY';
-                glowColor = '#00ffff'; // Cyan glow
-                break;
-            case 'circuitSanctum':
-                labelText = 'CIRCUIT SANCTUM';
-                glowColor = '#ff00ff'; // Magenta glow
-                break;
-            default:
-                labelText = destinationId.toUpperCase();
-                glowColor = '#00ffff'; // Default cyan glow
-                break;
+        if (showComingSoon) {
+            labelText = 'COMING SOON';
+            // Play the sound effect when rendering the coming soon label
+            // BUT only if we haven't played it recently (use a cooldown)
+            if (!this._lastComingSoonSound || (Date.now() - this._lastComingSoonSound > 2000)) {
+                this.playComingSoonSound();
+                this._lastComingSoonSound = Date.now();
+            }
+        } else {
+            switch (destinationId) {
+                case 'startRoom':
+                    labelText = 'NEXUS CORE';
+                    glowColor = '#ffd700'; // Gold glow for start room
+                    break;
+                case 'neonPhylactery':
+                    labelText = 'NEON PHYLACTERY';
+                    glowColor = '#00ffff'; // Cyan glow
+                    break;
+                case 'circuitSanctum':
+                    labelText = 'CIRCUIT SANCTUM';
+                    glowColor = '#ff00ff'; // Magenta glow
+                    break;
+                default:
+                    labelText = destinationId.toUpperCase();
+                    glowColor = '#00ffff'; // Default cyan glow
+                    break;
+            }
         }
         
         // Only proceed if we have a label
@@ -623,7 +1010,7 @@ class DoorwayManager {
         const doorways = this.doorwaysByScene[sceneId] || [];
         
         // Find the matching door
-        doorways.forEach(doorway => {
+        doorways.forEach((doorway) => {
             if (doorway.isWallDoorway && doorway.wallSide === wallSide) {
                 // For north walls, match on gridX
                 if (wallSide === 'north' && doorway.gridX === doorPosition) {

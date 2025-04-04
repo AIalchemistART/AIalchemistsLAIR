@@ -165,14 +165,14 @@ if (compatibilityResults.allCriticalSupported) {
             vibePortalManager.addPortals(
                 // Start portal options (red) - positioned in lower right corner
                 { 
-                    position: { x: 19, y: 19, z: 0 },
+                    position: { x: 1, y: 19, z: 0 },
                     label: 'RETURN PORTAL',
                     interactionDistance: 3.5,  // Slightly larger interaction range
                     entryDetectionRange: 2.0   // Easier to enter
                 },
                 // Exit portal options (green) - positioned in upper left corner
                 { 
-                    position: { x: 1, y: 19, z: 0 },
+                    position: { x: 19, y: 19, z: 0 },
                     label: 'ENTER VIBEVERSE',
                     targetUrl: 'https://portal.pieter.com',
                     interactionDistance: 3.5,  // Slightly larger interaction range

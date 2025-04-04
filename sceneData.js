@@ -15,17 +15,19 @@ export const scenes = {
         exits: [
             { 
                 direction: 'north', 
-                to: 'circuitSanctum', 
+                to: 'comingSoon', // Changed to prevent actual transition
                 position: { x: 200, y: 0 },
                 gridX: 8,  // Center of north wall
-                gridY: 0   // Top of the room (exit)
+                gridY: 0,   // Top of the room (exit)
+                comingSoon: true // Flag to indicate this is a coming soon door
             },
             { 
                 direction: 'east', 
-                to: 'neonPhylactery', 
+                to: 'comingSoon', // Changed to prevent actual transition
                 position: { x: 400, y: 150 },
                 gridX: 0,    // Changed from 14 to 0 - west wall
-                gridY: 5.3   // Positioning at exactly (0.0, 5.3)
+                gridY: 5.3,   // Positioning at exactly (0.0, 5.3)
+                comingSoon: true // Flag to indicate this is a coming soon door
             }
         ],
         objects: [

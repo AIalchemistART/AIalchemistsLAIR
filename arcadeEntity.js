@@ -1070,6 +1070,10 @@ class ArcadeEntity extends Entity {
             gainNode2.gain.linearRampToValueAtTime(0.03, context.currentTime + 0.2);
             gainNode2.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.6);
             
+            // Create master gain node
+            const masterGain = context.createGain();
+            masterGain.gain.setValueAtTime(0.15, context.currentTime); // Lower this for global volume
+            
             // Add some distortion for arcade flavor
             const distortion = context.createWaveShaper();
             function makeDistortionCurve(amount) {
@@ -1092,7 +1096,8 @@ class ArcadeEntity extends Entity {
             oscillator2.connect(gainNode2);
             gainNode.connect(distortion);
             gainNode2.connect(distortion);
-            distortion.connect(context.destination);
+            distortion.connect(masterGain);
+            masterGain.connect(context.destination);
             
             // Start oscillators
             oscillator.start();

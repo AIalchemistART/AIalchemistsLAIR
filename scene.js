@@ -103,6 +103,12 @@ class TestScene {
         this.id = window.location.hash.substring(1) || game?.currentScene || 'unknown';
         console.log('Current scene ID from render:', this.id);
         
+        // Store player position for coming soon proximity detection
+        if (playerEntity) {
+            this.playerX = playerEntity.x;
+            this.playerY = playerEntity.y;
+        }
+        
         // Save the context state
         ctx.save();
         
@@ -509,7 +515,7 @@ class TestScene {
         const currentScene = 'testScene'; // This should be obtained from scene manager in production
         
         // Wall height in grid units (how many wall tiles to stack)
-        const wallHeight = 3; // Increased from 2 to 3 rows for taller walls
+        const wallHeight = 4; // Increased from 2 to 3 rows for taller walls
         
         // Draw north wall (along the top edge of the grid)
         for (let i = 0; i < this.gridWidth; i++) {
@@ -539,21 +545,24 @@ class TestScene {
         const cornerX = (0 - 0) * (this.cellWidth / 2); // Corner at (0,0)
         const cornerY = (0 + 0) * (this.cellHeight / 2);
         
-        // Draw glowing corner marker
-        const wallHighlightColor = '#00ffcc';
-        ctx.fillStyle = wallHighlightColor;
-        ctx.globalAlpha = 0.8;
-        ctx.beginPath();
-        ctx.arc(cornerX, cornerY, 5, 0, Math.PI * 2);
-        ctx.fill();
+        const DEBUG_SHOW_CORNER_MARKERS = false;
+
+        if (DEBUG_SHOW_CORNER_MARKERS) {
+            const wallHighlightColor = '#00ffcc';
+            ctx.fillStyle = wallHighlightColor;
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(cornerX, cornerY, 5, 0, Math.PI * 2);
+            ctx.fill();
         
-        // Add glow effect
-        ctx.shadowColor = wallHighlightColor;
-        ctx.shadowBlur = 15;
-        ctx.globalAlpha = 0.5;
-        ctx.beginPath();
-        ctx.arc(cornerX, cornerY, 8, 0, Math.PI * 2);
-        ctx.fill();
+            // Add glow effect
+            ctx.shadowColor = wallHighlightColor;
+            ctx.shadowBlur = 15;
+            ctx.globalAlpha = 0.5;
+            ctx.beginPath();
+            ctx.arc(cornerX, cornerY, 8, 0, Math.PI * 2);
+            ctx.fill();
+        }
         
         // Reset shadow and alpha
         ctx.shadowBlur = 0;
@@ -944,8 +953,51 @@ class TestScene {
                 // Try a different rotation angle for better NW wall alignment
                 this.drawIsometricLabel(ctx, neonPos.x, neonPos.y, 'NEON PHYLACTERY', '#00ffff', 135);
             }
+            
+            // Also draw Coming Soon labels if we're in the startRoom
+            this.drawComingSoonLabels(ctx);
+            
         } catch (error) {
             console.error('Error drawing room labels:', error);
+        }
+    }
+    
+    /**
+     * Draws 'COMING SOON' labels for applicable doors
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     */
+    drawComingSoonLabels(ctx) {
+        try {
+            // Only show Coming Soon labels in the startRoom
+            const currentSceneId = window.location.hash.substring(1) || 'startRoom';
+            if (currentSceneId !== 'startRoom') return;
+            
+            console.log('Drawing COMING SOON labels for applicable doors');
+            
+            // Draw Circuit Sanctum COMING SOON label
+            // Using precise grid coordinates adjusted to be higher above the door
+            const circuitGridX = -19.3;     // Same X as the room label
+            const circuitGridY = -17.0;     // Higher up than the room label
+            
+            // Convert grid position to screen coordinates
+            const circuitPos = this.gridToScreen(circuitGridX, circuitGridY);
+            if (circuitPos) {
+                // Use red color for Coming Soon instead of purple
+                this.drawIsometricLabel(ctx, circuitPos.x, circuitPos.y, 'COMING SOON', '#ff0000');
+                console.log(`Drew COMING SOON label for Circuit Sanctum at (${circuitPos.x}, ${circuitPos.y})`);
+            }
+            
+            // Draw Neon Phylactery COMING SOON label
+            const neonGridX = -31.1;        // Adjusted X for the west door
+            const neonGridY = -10;        // Higher than the room label
+            const neonPos = this.gridToScreen(neonGridX, neonGridY);
+            if (neonPos) {
+                // Use same rotation as the room label to match the wall orientation
+                this.drawIsometricLabel(ctx, neonPos.x, neonPos.y, 'COMING SOON', '#ff0000', 135);
+                console.log(`Drew COMING SOON label for Neon Phylactery at (${neonPos.x}, ${neonPos.y})`);
+            }
+        } catch (error) {
+            console.error('Error drawing Coming Soon labels:', error);
         }
     }
     
