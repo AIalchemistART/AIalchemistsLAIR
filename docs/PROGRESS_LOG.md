@@ -60,6 +60,14 @@ This document provides a chronological record of development activities for the 
   - Implemented narrower trigger zone for audio vs. visual notifications
   - Created satisfying audio feedback that matches notification style
 
+### UI Improvements
+
+- **Minimap Visibility Enhancement** ✅
+  - Changed minimap to be hidden by default for cleaner initial UI
+  - Preserved full functionality with the M key toggle
+  - Maintained all minimap features (player location, viewport boundaries, grid visualization)
+  - Kept informative "Press M to toggle" text for discoverability
+
 - **Portal Navigation Enhancement** ✅
   - Updated exit portal to properly add reference parameters
   - Enhanced the portal entry/exit system to preserve referrer information
