@@ -50,7 +50,7 @@ class MiniMap {
         this.borderWidth = 2;
         
         // Toggleable state
-        this.visible = true;
+        this.visible = false; // Hidden by default, can be toggled with M key
         
         debug('MiniMap initialized', { 
             gridSize: `${gridWidth}x${gridHeight}`,
