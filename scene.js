@@ -128,7 +128,7 @@ class TestScene {
             
             // Add padding to ensure grid cells at the edges are rendered
             // Increased padding to extend draw distance
-            const padding = 6; // Increased from 2 to 6 for greater draw distance
+            const padding = 12; // Increased from 2 to 6 for greater draw distance
             
             // Get camera viewport corners in world coordinates
             const topLeftWorldX = camera.x - viewWidth / 2;
