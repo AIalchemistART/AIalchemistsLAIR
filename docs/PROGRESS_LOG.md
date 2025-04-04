@@ -40,6 +40,26 @@ This document provides a chronological record of development activities for the 
   - Implemented URL parameter checking in `vibePortalManager.js`
   - Added clear logging to indicate portal visibility state
 
+### Coming Soon Doorway Notifications Implementation
+
+- **Arcade-Style UI Notifications** ✅
+  - Implemented red-themed text boxes with double borders for "Coming Soon" notifications
+  - Added glowing text effects that match the game's cyberpunk aesthetic
+  - Positioned notifications correctly in isometric perspective above doorways
+  - Styled consistently with other game UI elements (matching arcade cabinet style)
+
+- **Proximity-Based Display System** ✅
+  - Created distance-based notification system that shows labels only when player approaches
+  - Implemented smooth fade-in/fade-out effects based on player distance
+  - Added configurable thresholds for visibility range and fade distance
+  - Connected notification visibility to sound trigger system
+
+- **Sound Effect Integration** ✅
+  - Refined sound effect timing to prevent audio spam
+  - Added proper cooldown between notification sounds (5-second minimum)
+  - Implemented narrower trigger zone for audio vs. visual notifications
+  - Created satisfying audio feedback that matches notification style
+
 - **Portal Navigation Enhancement** ✅
   - Updated exit portal to properly add reference parameters
   - Enhanced the portal entry/exit system to preserve referrer information
