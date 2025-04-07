@@ -15,11 +15,11 @@ export const scenes = {
         exits: [
             { 
                 direction: 'north', 
-                to: 'comingSoon', // Changed to prevent actual transition
+                to: 'https://aialchemistart.github.io/Circuit-Sanctum-Arcade/', // Updated to allow transition to Vibeverse Arcade
                 position: { x: 200, y: 0 },
                 gridX: 8,  // Center of north wall
-                gridY: 0,   // Top of the room (exit)
-                comingSoon: true // Flag to indicate this is a coming soon door
+                gridY: 0   // Top of the room (exit)
+                // comingSoon flag removed as this area is now implemented
             },
             { 
                 direction: 'east', 

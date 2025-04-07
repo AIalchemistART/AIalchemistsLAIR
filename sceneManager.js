@@ -19,6 +19,15 @@ class SceneManager {
     }
 
     loadScene(sceneId) {
+        // Check if the sceneId is actually a URL (starts with http or https)
+        if (typeof sceneId === 'string' && (sceneId.startsWith('http://') || sceneId.startsWith('https://'))) {
+            console.log(`Navigating to external URL: ${sceneId}`);
+            
+            // Redirect the browser to the external URL
+            window.location.href = sceneId;
+            return; // Exit early as we're redirecting to external URL
+        }
+        
         // Call onExit for current scene if it exists
         if (this.currentScene && this.currentScene.logic && this.currentScene.logic.onExit) {
             this.currentScene.logic.onExit();

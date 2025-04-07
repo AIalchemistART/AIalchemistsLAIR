@@ -935,13 +935,16 @@ class TestScene {
             // Using precise grid coordinates based on the screenshot position (7.1, 0.0)
             
             // Grid coordinate positioning
-            const circuitGridX = -18.7;    // Exact X position from the screenshot
-            const circuitGridY = -15.2;   // Positioned above the north door
+            const circuitGridX = -18.9;    // Exact X position from the screenshot
+            const circuitGridY = -15.4;   // Positioned above the north door
             
             // Convert grid position to screen coordinates
             const circuitPos = this.gridToScreen(circuitGridX, circuitGridY);
             if (circuitPos) {
-                this.drawIsometricLabel(ctx, circuitPos.x, circuitPos.y, 'CIRCUIT SANCTUM', '#ff00ff');
+                this.drawIsometricLabel(ctx, circuitPos.x, circuitPos.y, 'VIBEVERSE ARCADE', '#ff00ff');
+                
+                // Draw the animated arrow pointing to the Vibeverse Arcade door
+                this.drawVibeverseDoorArrow(ctx);
             }
             
             // Draw Neon Phylactery label (east door) - keeping it aligned with the eastern doorway
@@ -974,18 +977,8 @@ class TestScene {
             
             console.log('Drawing COMING SOON labels for applicable doors');
             
-            // Draw Circuit Sanctum COMING SOON label
-            // Using precise grid coordinates adjusted to be higher above the door
-            const circuitGridX = -19.3;     // Same X as the room label
-            const circuitGridY = -17.0;     // Higher up than the room label
-            
-            // Convert grid position to screen coordinates
-            const circuitPos = this.gridToScreen(circuitGridX, circuitGridY);
-            if (circuitPos) {
-                // Use red color for Coming Soon instead of purple
-                this.drawIsometricLabel(ctx, circuitPos.x, circuitPos.y, 'COMING SOON', '#ff0000');
-                console.log(`Drew COMING SOON label for Circuit Sanctum at (${circuitPos.x}, ${circuitPos.y})`);
-            }
+            // NOTE: Circuit Sanctum/Vibeverse Arcade no longer shows COMING SOON label
+            // as it's now fully implemented
             
             // Draw Neon Phylactery COMING SOON label
             const neonGridX = -31.1;        // Adjusted X for the west door
@@ -1300,6 +1293,95 @@ class TestScene {
         const g = Math.min(255, Math.max(0, ((num >> 8) & 0x00FF) + percent));
         const b = Math.min(255, Math.max(0, (num & 0x0000FF) + percent));
         return '#' + (b | (g << 8) | (r << 16)).toString(16).padStart(6, '0');
+    }
+    
+    /**
+     * Draws an animated isometric arrow pointing to the northeast above the Vibeverse Arcade label
+     * @param {CanvasRenderingContext2D} ctx - Canvas context
+     */
+    drawVibeverseDoorArrow(ctx) {
+        try {
+            // Only draw in the startRoom
+            const currentSceneId = window.location.hash.substring(1) || 'startRoom';
+            if (currentSceneId !== 'startRoom') return;
+            
+            // Get current timestamp for animation
+            const timestamp = Date.now();
+            
+            // Use similar grid positioning to the Vibeverse Arcade label but higher up
+            // Position is slightly above the label
+            const arrowGridX = -19.4;  // Match the Vibeverse Arcade label X-position
+            const arrowGridY = -17;  // Place above the label
+            
+            // Convert grid to screen coordinates
+            const arrowPos = this.gridToScreen(arrowGridX, arrowGridY);
+            if (!arrowPos) return;
+            
+            // Animation parameters
+            const pulsePeriod = 1500; // 1.5 seconds for a full pulse cycle
+            const movementRange = 10;  // Maximum pixel movement range
+            
+            // Calculate animation movement offset
+            // This creates a smooth back-and-forth motion using a sine wave
+            const movementOffset = Math.sin((timestamp % pulsePeriod) / pulsePeriod * Math.PI * 2) * movementRange;
+            
+            // Save current context state
+            ctx.save();
+            
+            // Move to the arrow position
+            ctx.translate(arrowPos.x, arrowPos.y);
+            
+            // Apply isometric transformations for the arrow
+            ctx.transform(
+                1.5, 0.1,  // Horizontal scaling and skewing
+                0.5, 1.0,  // Vertical skewing and scaling
+                0, 0       // Horizontal and vertical translation
+            );
+            
+            // Apply the animation movement
+            ctx.translate(movementOffset, -movementOffset / 2);
+            
+            // Arrow styling
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#ff00ff'; // Match the Vibeverse Arcade purple color
+            ctx.fillStyle = 'rgba(255, 0, 255, 0.5)'; // Semi-transparent fill
+            
+            // Add glow effect
+            ctx.shadowColor = '#ff00ff';
+            ctx.shadowBlur = 10;
+            
+            // Draw the arrow pointing northeast
+            ctx.beginPath();
+            
+            // Arrow body - rotated 45 degrees clockwise
+            ctx.moveTo(-15, -5);  // Start at the bottom left (rotated)
+            ctx.lineTo(10, -10);   // Draw to the top center (rotated)
+            ctx.lineTo(-3, 5);   // Draw to the bottom right (rotated)
+            
+            // Arrow head - rotated 45 degrees clockwise
+            ctx.moveTo(10, -10);   // Start at the top center (rotated)
+            ctx.lineTo(20, -15);   // Draw the stem up (rotated)
+            ctx.lineTo(15, -5);  // Draw right side of arrowhead (rotated)
+            ctx.lineTo(20, -15);   // Back to the tip (rotated)
+            ctx.lineTo(5, -15); // Draw left side of arrowhead (rotated)
+            
+            // Draw the path
+            ctx.stroke();
+            ctx.fill();
+            
+            // Add a pulsing effect using the timestamp
+            const pulseOpacity = 0.5 + 0.5 * Math.sin((timestamp % 1000) / 1000 * Math.PI);
+            
+            // Draw a pulsing glow around the arrow
+            ctx.shadowBlur = 20;
+            ctx.strokeStyle = `rgba(255, 0, 255, ${pulseOpacity})`;
+            ctx.stroke();
+            
+            // Restore the context state
+            ctx.restore();
+        } catch (error) {
+            console.error('Error drawing Vibeverse door arrow:', error);
+        }
     }
 }
 

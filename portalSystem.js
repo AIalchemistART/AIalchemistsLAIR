@@ -113,8 +113,38 @@ class PortalSystem {
         if (this.debug) {
             console.log(`Transitioning through portal ${portalId} to ${portal.targetScene}`);
         }
-
-        // Find the corresponding entry point in the target scene
+        
+        // Check if the target scene is an external URL
+        if (typeof portal.targetScene === 'string' && (portal.targetScene.startsWith('http://') || portal.targetScene.startsWith('https://'))) {
+            console.log(`Portal leads to external URL: ${portal.targetScene}`);
+            
+            // Create a simple fade-out transition effect before redirect
+            const fadeOverlay = document.createElement('div');
+            fadeOverlay.style.position = 'fixed';
+            fadeOverlay.style.top = '0';
+            fadeOverlay.style.left = '0';
+            fadeOverlay.style.width = '100%';
+            fadeOverlay.style.height = '100%';
+            fadeOverlay.style.backgroundColor = 'black';
+            fadeOverlay.style.opacity = '0';
+            fadeOverlay.style.transition = 'opacity 0.5s ease-in-out';
+            fadeOverlay.style.zIndex = '9999';
+            document.body.appendChild(fadeOverlay);
+            
+            // Trigger fade-in effect and then redirect
+            setTimeout(() => {
+                fadeOverlay.style.opacity = '1';
+                
+                // After fade completes, redirect to the URL
+                setTimeout(() => {
+                    window.location.href = portal.targetScene;
+                }, 500);
+            }, 50);
+            
+            return true;
+        }
+        
+        // For regular scenes, find the corresponding entry point
         const targetScene = scenes[portal.targetScene];
         if (!targetScene) {
             console.error(`Target scene ${portal.targetScene} not found`);

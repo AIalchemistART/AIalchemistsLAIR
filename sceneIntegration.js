@@ -86,13 +86,61 @@ export function updateScene(deltaTime, player) {
             const playerGridX = player.gridX !== undefined ? player.gridX : Math.floor(player.x);
             const playerGridY = player.gridY !== undefined ? player.gridY : Math.floor(player.y);
             
-            // Check for nearby portals (with a proximity threshold of 1.5 grid units)
-            const nearbyPortals = portalSystem.getNearbyPortals(
-                playerGridX, 
-                playerGridY, 
-                currentScene.id,
-                1.5
-            );
+            // Use a custom proximity threshold based on the current scene
+            // For the startRoom-north portal (Vibeverse Arcade), use a smaller threshold
+            // to make the interaction more precise
+            let proximityThreshold = 0.5; // Default threshold for most portals
+            
+            // Initialize nearbyPortals array
+            let nearbyPortals = [];
+            let foundCustomPortal = false;
+            
+            // Special case: tighter detection radius for Vibeverse Arcade portal
+            if (currentScene.id === 'startRoom') {
+                // Get specific portal thresholds based on their grid locations and directions
+                // First, get all portals in current scene
+                const scenePortals = portalSystem.getPortalsForScene(currentScene.id);
+                
+                // Define custom proximity values for specific portals
+                const customProximityValues = {};
+                
+                // Check if we're dealing with the Vibeverse Arcade portal (north door in startRoom)
+                scenePortals.forEach(portal => {
+                    if (portal.direction === 'north' && portal.targetScene.startsWith('http')) {
+                        // We found the Vibeverse Arcade portal, use a tighter threshold
+                        customProximityValues[portal.id] = 0.25; // Reduced from 1.5 to 0.8
+                        console.log(`Found Vibeverse Arcade portal: ${portal.id}, using tighter proximity threshold: 0.8`);
+                    }
+                });
+                
+                // Now check if the player is near any portal with custom thresholds first
+                for (const portal of scenePortals) {
+                    if (customProximityValues[portal.id]) {
+                        // Use the custom threshold for this specific portal
+                        const threshold = customProximityValues[portal.id];
+                        const dx = Math.abs(portal.gridX - playerGridX);
+                        const dy = Math.abs(portal.gridY - playerGridY);
+                        
+                        if (Math.max(dx, dy) <= threshold) {
+                            // Player is near this specific portal using its custom threshold
+                            nearbyPortals = [portal.id];
+                            console.log(`Player near custom-threshold portal: ${portal.id} (threshold: ${threshold})`);
+                            foundCustomPortal = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // If no custom-threshold portals were detected, use the standard detection
+            if (!foundCustomPortal) {
+                nearbyPortals = portalSystem.getNearbyPortals(
+                    playerGridX, 
+                    playerGridY, 
+                    currentScene.id,
+                    proximityThreshold
+                );
+            }
             
             // If player is near a portal, trigger transition
             if (nearbyPortals.length > 0) {

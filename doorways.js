@@ -400,27 +400,36 @@ class DoorwayManager {
             
             // Check if player is near a doorway
             if (isPlayerNear) {
-                // If we're in the start room, mark ALL doorways for "Coming Soon" messages
+                // If we're in the start room, check for Coming Soon doors
                 if (currentScene.id === 'startRoom') {
-                        // Mark doorway by creating a unique identifier based on position rather than object reference
+                    // Create a unique identifier for this door
                     const doorId = doorway.wallSide ? `${doorway.wallSide}_${doorway.gridX}_${doorway.gridY}` : `regular_${doorway.gridX}_${doorway.gridY}`;
-                    doorway.needsComingSoon = true;
-                    doorway.comingSoonId = doorId;
                     
-                    // Store identifiers instead of object references
-                    if (!this.comingSoonDoorIds) this.comingSoonDoorIds = new Set();
-                    this.comingSoonDoorIds.add(doorId);
+                    // Skip the north door (Vibeverse Arcade) completely - it's no longer a Coming Soon door
+                    const isVibeverseDoor = doorway.wallSide === 'north' && doorway.gridX === 8 && doorway.gridY === 0;
                     
-                    // Add to the array as well (for backward compatibility)
-                    this.doorsNeedingComingSoon.push(doorway);
-                    
-                    console.log('DOORWAY-DEBUG: Marked doorway for Coming Soon', doorId);
-                    
-                    // Play sound effect (but don't spam it)
-                    if (this.transitionCooldown <= 0) {
-                        console.log('SHOWING: Coming Soon - This area is under construction!');
-                        this.playComingSoonSound();
-                        this.transitionCooldown = 3.0; // Seconds before playing sound again
+                    if (!isVibeverseDoor) {
+                        // Only mark non-Vibeverse doors as Coming Soon
+                        doorway.needsComingSoon = true;
+                        doorway.comingSoonId = doorId;
+                        
+                        // Store identifiers instead of object references
+                        if (!this.comingSoonDoorIds) this.comingSoonDoorIds = new Set();
+                        this.comingSoonDoorIds.add(doorId);
+                        
+                        // Add to the array as well (for backward compatibility)
+                        this.doorsNeedingComingSoon.push(doorway);
+                        
+                        console.log('DOORWAY-DEBUG: Marked doorway for Coming Soon', doorId);
+                        
+                        // Play sound effect (but don't spam it)
+                        if (this.transitionCooldown <= 0) {
+                            console.log('SHOWING: Coming Soon - This area is under construction!');
+                            this.playComingSoonSound();
+                            this.transitionCooldown = 3.0; // Seconds before playing sound again
+                        }
+                    } else {
+                        console.log('DOORWAY-DEBUG: Skipping Vibeverse Arcade door - no longer Coming Soon');
                     }
                 }
                 // If it's not the start room and this is not a wall doorway, allow transitions
@@ -664,7 +673,12 @@ class DoorwayManager {
                 this.renderComingSoonOverDoor(ctx, pos.x, pos.y, alpha);
                 
                 // Play sound when we're very close (if not played recently)
-                if (distance < proximityThreshold / 6 && 
+                // Skip NE Door (Vibeverse Arcade) position to prevent sound from playing
+                // NE door original position was at (288, 28.8) - never play sound for this position
+                const isVibeverseDoor = Math.abs(pos.x - 288) < 5 && Math.abs(pos.y - 28.8) < 5;
+                
+                if (!isVibeverseDoor && 
+                    distance < proximityThreshold / 6 && 
                     (!this._lastComingSoonSound || (Date.now() - this._lastComingSoonSound > 5000))) {
                     this.playComingSoonSound();
                     this._lastComingSoonSound = Date.now();
@@ -764,9 +778,10 @@ class DoorwayManager {
         if (sceneName === 'startRoom') {
             console.log('DOORWAY-DEBUG: Adding Coming Soon positions for startRoom');
             // Use the EXACT coordinates from the logs without adjustments
-            // Drew isometric "CIRCUIT SANCTUM" label at 288,28.8 with rotation 0°
+            // VIBEVERSE ARCADE (formerly Circuit Sanctum) is no longer marked as Coming Soon
             // Drew isometric "NEON PHYLACTERY" label at -230.4,-9.6 with rotation 135°
-            this.doorPositions.push({ x: 288, y: 28.8 });          // CIRCUIT SANCTUM door position
+            
+            // Only add the Neon Phylactery door position as it still needs the Coming Soon label
             this.doorPositions.push({ x: -230.4, y: -9.6 });      // NEON PHYLACTERY door position
             
             console.log('DOORWAY-DEBUG: doorPositions array updated:', JSON.stringify(this.doorPositions));
@@ -950,7 +965,7 @@ class DoorwayManager {
                     glowColor = '#00ffff'; // Cyan glow
                     break;
                 case 'circuitSanctum':
-                    labelText = 'CIRCUIT SANCTUM';
+                    labelText = 'VIBEVERSE ARCADE';
                     glowColor = '#ff00ff'; // Magenta glow
                     break;
                 default:
